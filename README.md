@@ -1,4 +1,4 @@
-# My Pop Up Data
+# Pop My Data
 _Ensemble d'outils de prospection de locaux comemrciaux_
 
 ## Sommaire
@@ -12,7 +12,7 @@ _Ensemble d'outils de prospection de locaux comemrciaux_
 
 ## Origine du projet
 
-_My Pop Up Data_ est developpé à la demande de __My Pop Up Store__
+_Pop My Data_ est developpé à la demande de __My Pop Up Store__
 
 ## Interface
 
@@ -22,7 +22,7 @@ Ces analyses ont été mise à disposition au travers d’une __WebApp__ créée
 
 Le site est hébergé directement sur les serveurs mis à disposition par *Streamlit* :
 
-https://share.streamlit.io/mickaelkohler/projet_more/main
+https://share.streamlit.io/mickaelkohler/popmydata/main/locannuaire.py
 
 ### Captures d’écran
 
