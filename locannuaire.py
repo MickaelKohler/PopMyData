@@ -2,7 +2,6 @@ import requests
 import numpy as np
 import pandas as pd
 import streamlit as st
-from geopy.geocoders import BANFrance
 
 
 # FONCTIONS
@@ -47,8 +46,10 @@ with st.form(key='local_finder'):
     with col1:
         numb = st.number_input('Numéro de rue :', value=1, step=1)
     with col2:
-        street = st.selectbox('Selectionnez la rue', flpm['Nom voie (Adresse du local)'])
+        address = flpm['Nom voie (Adresse du local)'].drop_duplicates()
+        street = st.selectbox('Selectionnez la rue', address)
     submit = st.form_submit_button('Rechercher')
+
 
 search = flpm[(flpm['Nom voie (Adresse du local)'] == street) &
               (flpm['N° voirie (Adresse du local)'] == numb)]
@@ -65,6 +66,7 @@ if search.shape[0] > 1:
     st.dataframe(select)
     index = st.selectbox("Selectionner l'index du propriétaire souhaité", select.index)
     search = search[search.index == index]
+    st.markdown('___')
 
 if search.shape[0] == 0:
     st.markdown("Il n'y a pas de propriétaire de local commercial identifié à cette adresse")
@@ -81,8 +83,6 @@ else:
     # request
     info = requests.get(pappers_enterprise, params={'api_token': key, 'siren': siren})
     status = info.json()
-
-    st.markdown('___')
 
     col1, col2 = st.beta_columns(2)
     with col1:
