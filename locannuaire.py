@@ -46,7 +46,7 @@ with st.form(key='local_finder'):
     with col2:
         address = flpm['Nom voie (Adresse du local)'].drop_duplicates()
         street = st.selectbox('Selectionnez la rue', address)
-    submit = st.form_submit_button('Rechercher')
+    st.form_submit_button('Rechercher')
 
 search = flpm[(flpm['Nom voie (Adresse du local)'] == street) &
               (flpm['N° voirie (Adresse du local)'] == numb)]
