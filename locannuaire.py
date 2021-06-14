@@ -11,8 +11,6 @@ def load_data(url):
 
 
 # API CONFIG
-geolocator = BANFrance(user_agent="mygeo")
-
 key = '0036e5513cdb2eb3135d2d96f81760dc46452322158e1edd'
 pappers_enterprise = 'https://api.pappers.fr/v2/entreprise'
 pappers_reaserch = 'https://api.pappers.fr/v2/recherche'
