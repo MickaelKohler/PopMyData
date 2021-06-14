@@ -46,63 +46,64 @@ with st.form(key='local_finder'):
     with col2:
         address = flpm['Nom voie (Adresse du local)'].drop_duplicates()
         street = st.selectbox('Selectionnez la rue', address)
-    st.form_submit_button('Rechercher')
+    submit = st.form_submit_button('Rechercher')
 
-search = flpm[(flpm['Nom voie (Adresse du local)'] == street) &
-              (flpm['N° voirie (Adresse du local)'] == numb)]
+if submit:
+    search = flpm[(flpm['Nom voie (Adresse du local)'] == street) &
+                  (flpm['N° voirie (Adresse du local)'] == numb)]
 
-if search.shape[0] > 1:
-    st.markdown('Il y a plusieurs propriétaires à cette adresse.')
-    select = search[['Dénomination (Propriétaire(s) du local)',
-                     'Forme juridique abrégée (Propriétaire(s) du local)',
-                     'N° SIREN (Propriétaire(s) du local)',
-                     'Section (Références cadastrales)',
-                     'Bâtiment (Identification du local)',
-                     'Indice de répétition (Adresse du local)']]
-    select.drop_duplicates(['N° SIREN (Propriétaire(s) du local)'], inplace=True)
-    st.dataframe(select)
-    index = st.selectbox("Selectionner l'index du propriétaire souhaité", select.index)
-    search = search[search.index == index]
-    st.markdown('___')
+    if search.shape[0] > 1:
+        st.markdown('Il y a plusieurs propriétaires à cette adresse.')
+        select = search[['Dénomination (Propriétaire(s) du local)',
+                         'Forme juridique abrégée (Propriétaire(s) du local)',
+                         'N° SIREN (Propriétaire(s) du local)',
+                         'Section (Références cadastrales)',
+                         'Bâtiment (Identification du local)',
+                         'Indice de répétition (Adresse du local)']]
+        select.drop_duplicates(['N° SIREN (Propriétaire(s) du local)'], inplace=True)
+        st.dataframe(select)
+        index = st.selectbox("Selectionner l'index du propriétaire souhaité", select.index)
+        search = search[search.index == index]
+        st.markdown('___')
 
-if search.shape[0] == 0:
-    st.markdown("Il n'y a pas de propriétaire de local commercial identifié à cette adresse")
-else:
-    # search on pappers
-    if any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
-        name = search['Dénomination (Propriétaire(s) du local)']
-        info = requests.get(pappers_reaserch, params={'api_token': key, 'q': name, 'precision': 'exacte'})
-        societe = info.json()
-        siren = societe['resultats'][0]['siren']
+    if search.shape[0] == 0:
+        st.markdown("Il n'y a pas de propriétaire de local commercial identifié à cette adresse")
     else:
-        siren = search['N° SIREN (Propriétaire(s) du local)']
+        # search on pappers
+        if any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
+            name = search['Dénomination (Propriétaire(s) du local)']
+            info = requests.get(pappers_reaserch, params={'api_token': key, 'q': name, 'precision': 'exacte'})
+            societe = info.json()
+            siren = societe['resultats'][0]['siren']
+        else:
+            siren = search['N° SIREN (Propriétaire(s) du local)']
 
-    # request
-    info = requests.get(pappers_enterprise, params={'api_token': key, 'siren': siren})
-    status = info.json()
+        # request
+        info = requests.get(pappers_enterprise, params={'api_token': key, 'siren': siren})
+        status = info.json()
 
-    col1, col2 = st.beta_columns(2)
-    with col1:
-        siege = status['siege']
-        st.markdown(
-            f"""
-            **SIEGE** : \n
-            {status['denomination']},\n
-            {siege['adresse_ligne_1'].lower()}, \n
-            {siege['code_postal']} - {siege['ville']} ({siege['pays']})
-            """)
+        col1, col2 = st.beta_columns(2)
+        with col1:
+            siege = status['siege']
+            st.markdown(
+                f"""
+                **SIEGE** : \n
+                {status['denomination']},\n
+                {siege['adresse_ligne_1'].lower()}, \n
+                {siege['code_postal']} - {siege['ville']} ({siege['pays']})
+                """)
 
-    with col2:
-        gerant = status['representants'][0]
-        nom_gerant = gerant['nom_complet']
-        age_gerant = f"{gerant['date_de_naissance_formate']}, {gerant['age']} ans"
-        ad1_gerant = gerant['adresse_ligne_1']
-        ad2_gerant = f"{gerant['code_postal']} - {gerant['ville'].upper()} ({gerant['pays']})"
+        with col2:
+            gerant = status['representants'][0]
+            nom_gerant = gerant['nom_complet']
+            age_gerant = f"{gerant['date_de_naissance_formate']}, {gerant['age']} ans"
+            ad1_gerant = gerant['adresse_ligne_1']
+            ad2_gerant = f"{gerant['code_postal']} - {gerant['ville'].upper()} ({gerant['pays']})"
 
-        st.markdown(
-            f"""
-            **GERANT** : \n
-            {nom_gerant}  - {age_gerant} \n
-            {ad1_gerant}, \n
-            {ad2_gerant}
-            """)
+            st.markdown(
+                f"""
+                **GERANT** : \n
+                {nom_gerant}  - {age_gerant} \n
+                {ad1_gerant}, \n
+                {ad2_gerant}
+                """)
