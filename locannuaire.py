@@ -78,16 +78,27 @@ st.markdown('___')
 
 if requete:
     # if no owner found
+    any_soc = False
     if search.shape[0] == 0:
-        st.markdown("Il n'y a pas de propriétaire de local commercial identifié à cette adresse")
-        any_soc = False
+        st.markdown(
+            """
+            Il n'y a pas de propriétaire identifié pour le de local commercial situé à cette adresse, 
+            ou l'adresse indiquée n'existe pas
+            """)
     # if siren is false
     elif any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
         name = search['Dénomination (Propriétaire(s) du local)']
-        info = requests.get(pappers_reaserch, params={'api_token': pappers_key, 'q': name, 'precision': 'exacte'})
+        info = requests.get(pappers_reaserch, params={'api_token': pappers_key, 'q': name})
         societe = info.json()
-        siren = societe['resultats'][0]['siren']
-        any_soc = True
+        if societe['total'] == 0:
+            st.markdown(
+                f"""
+                La société n'a pas pu être correctement identifiée. 
+                Nous vous invitons à effectuer manuellement la recherche de la société **{name.iloc[0]}**.
+                """)
+        else:
+            siren = societe['resultats'][0]['siren']
+            any_soc = True
     # if siren is good
     else:
         siren = search['N° SIREN (Propriétaire(s) du local)']
@@ -102,12 +113,21 @@ if requete:
         col1, col2 = st.beta_columns(2)
         with col1:
             siege = status['siege']
+            nom_soc = status['denomination']
+            ad1_soc = siege['adresse_ligne_1'].lower()
+            if siege['adresse_ligne_2'] != None:
+                ad2_soc = siege['adresse_ligne_2']
+            else:
+                ad2_soc = ' '
+            ad3_soc = f"{siege['code_postal']} - {siege['ville']} ({siege['pays']})"
+
             st.markdown(
                 f"""
                 **SIEGE** : \n
-                {status['denomination']},\n
-                {siege['adresse_ligne_1'].lower()}, \n
-                {siege['code_postal']} - {siege['ville']} ({siege['pays']})
+                {nom_soc}\n
+                {ad1_soc.lower()} \n
+                {ad2_soc.lower()} \n
+                {ad3_soc}
                 """)
 
         with col2:
@@ -115,12 +135,17 @@ if requete:
             nom_gerant = gerant['nom_complet']
             age_gerant = f"{gerant['date_de_naissance_formate']}, {gerant['age']} ans"
             ad1_gerant = gerant['adresse_ligne_1']
-            ad2_gerant = f"{gerant['code_postal']} - {gerant['ville'].upper()} ({gerant['pays']})"
+            if gerant['adresse_ligne_2'] != None:
+                ad2_gerant = gerant['adresse_ligne_2']
+            else:
+                ad2_gerant = ' '
+            ad3_gerant = f"{gerant['code_postal']} - {gerant['ville'].upper()} ({gerant['pays'].capitalize()})"
 
             st.markdown(
                 f"""
                 **GERANT** : \n
                 {nom_gerant}  - {age_gerant} \n
-                {ad1_gerant}, \n
-                {ad2_gerant}
+                {ad1_gerant} \n
+                {ad2_gerant} \n
+                {ad3_gerant}
                 """)
