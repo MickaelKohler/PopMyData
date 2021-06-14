@@ -42,8 +42,13 @@ category = st.selectbox('Choisissez une ville',
 
 flpm = load_data(category['data'])
 
-numb = st.number_input('Numéro de rue :', value=1, step=1)
-street = st.selectbox('Selectionnez la rue', flpm['Nom voie (Adresse du local)'])
+with st.form(key='local_finder'):
+    col1, col2 = st.beta_columns([1, 2])
+    with col1:
+        numb = st.number_input('Numéro de rue :', value=1, step=1)
+    with col2:
+        street = st.selectbox('Selectionnez la rue', flpm['Nom voie (Adresse du local)'])
+    submit = st.form_submit_button('Rechercher')
 
 search = flpm[(flpm['Nom voie (Adresse du local)'] == street) &
               (flpm['N° voirie (Adresse du local)'] == numb)]
