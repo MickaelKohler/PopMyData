@@ -12,7 +12,7 @@ _Ensemble d'outils de prospection de locaux comemrciaux_
 
 ## Origine du projet
 
-_My Pop Up Data_ est developpé à la demande de __My Pop Up Store__
+_Pop My Data_ est developpé à la demande de __My Pop Up Store__
 
 ## Interface
 
