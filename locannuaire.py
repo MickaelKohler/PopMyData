@@ -38,47 +38,52 @@ category = st.selectbox('Choisissez une ville',
                         format_func=lambda option:option['city'])
 
 flpm = load_data(category['data'])
+address_temp = flpm['Nom voie (Adresse du local)'].unique()
 
-with st.form(key='local_finder'):
-    col1, col2 = st.beta_columns([1, 2])
-    with col1:
-        numb = st.number_input('Numéro de rue :', value=1, step=1)
-    with col2:
-        address = flpm['Nom voie (Adresse du local)'].drop_duplicates()
-        street = st.selectbox('Selectionnez la rue', address)
-    submit = st.form_submit_button('Rechercher')
+col1, col2 = st.beta_columns([1, 2])
+with col1:
+    numb = st.number_input('Numéro de rue :', value=1, step=1)
+with col2:
+    street = st.selectbox('Selectionnez la rue', address_temp)
 
-if submit:
-    search = flpm[(flpm['Nom voie (Adresse du local)'] == street) &
-                  (flpm['N° voirie (Adresse du local)'] == numb)]
+search = flpm[(flpm['Nom voie (Adresse du local)'] == street) &
+              (flpm['N° voirie (Adresse du local)'] == numb)]
 
-    if search.shape[0] > 1:
-        st.markdown('Il y a plusieurs propriétaires à cette adresse.')
-        select = search[['Dénomination (Propriétaire(s) du local)',
-                         'Forme juridique abrégée (Propriétaire(s) du local)',
-                         'N° SIREN (Propriétaire(s) du local)',
-                         'Section (Références cadastrales)',
-                         'Bâtiment (Identification du local)',
-                         'Indice de répétition (Adresse du local)']]
-        select.drop_duplicates(['N° SIREN (Propriétaire(s) du local)'], inplace=True)
-        st.dataframe(select)
-        index = st.selectbox("Selectionner l'index du propriétaire souhaité", select.index)
-        search = search[search.index == index]
-        st.markdown('___')
+if search.shape[0] > 1:
+    st.title(' ')
+    st.markdown('Il y a plusieurs propriétaires à cette adresse :')
+    select = search[['Dénomination (Propriétaire(s) du local)',
+                     'Forme juridique abrégée (Propriétaire(s) du local)',
+                     'N° SIREN (Propriétaire(s) du local)',
+                     'Section (Références cadastrales)',
+                     'Bâtiment (Identification du local)',
+                     'Indice de répétition (Adresse du local)']]
+    select.drop_duplicates(['N° SIREN (Propriétaire(s) du local)'], inplace=True)
+    st.dataframe(select)
+    name = st.selectbox("Selectionnez le nom du propriétaire souhaité",
+                        list(select['Dénomination (Propriétaire(s) du local)']))
+    search = search[search['Dénomination (Propriétaire(s) du local)'] == name]
 
+st.title(' ')
+requete = st.button('Rechercher')
+st.markdown('___')
+
+if requete:
     if search.shape[0] == 0:
         st.markdown("Il n'y a pas de propriétaire de local commercial identifié à cette adresse")
+        soc = False
+    # search on pappers
+    elif any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
+        name = search['Dénomination (Propriétaire(s) du local)']
+        info = requests.get(pappers_reaserch, params={'api_token': key, 'q': name, 'precision': 'exacte'})
+        societe = info.json()
+        siren = societe['resultats'][0]['siren']
+        soc = True
     else:
-        # search on pappers
-        if any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
-            name = search['Dénomination (Propriétaire(s) du local)']
-            info = requests.get(pappers_reaserch, params={'api_token': key, 'q': name, 'precision': 'exacte'})
-            societe = info.json()
-            siren = societe['resultats'][0]['siren']
-        else:
-            siren = search['N° SIREN (Propriétaire(s) du local)']
+        siren = search['N° SIREN (Propriétaire(s) du local)']
+        soc = True
 
-        # request
+    if soc:
         info = requests.get(pappers_enterprise, params={'api_token': key, 'siren': siren})
         status = info.json()
 
