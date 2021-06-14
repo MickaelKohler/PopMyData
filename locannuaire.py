@@ -114,9 +114,12 @@ if requete:
         with col1:
             siege = status['siege']
             nom_soc = status['denomination']
-            ad1_soc = siege['adresse_ligne_1'].lower()
+            if siege['adresse_ligne_1'] != None:
+                ad1_soc = siege['adresse_ligne_1'].lower()
+            else:
+                ad1_soc = ' '
             if siege['adresse_ligne_2'] != None:
-                ad2_soc = siege['adresse_ligne_2']
+                ad2_soc = siege['adresse_ligne_2'].lower()
             else:
                 ad2_soc = ' '
             ad3_soc = f"{siege['code_postal']} - {siege['ville']} ({siege['pays']})"
@@ -134,9 +137,12 @@ if requete:
             gerant = status['representants'][0]
             nom_gerant = gerant['nom_complet']
             age_gerant = f"{gerant['date_de_naissance_formate']}, {gerant['age']} ans"
-            ad1_gerant = gerant['adresse_ligne_1']
+            if gerant['adresse_ligne_1'] != None:
+                ad1_gerant = gerant['adresse_ligne_1'].lower()
+            else:
+                ad1_gerant = ' '
             if gerant['adresse_ligne_2'] != None:
-                ad2_gerant = gerant['adresse_ligne_2']
+                ad2_gerant = gerant['adresse_ligne_2'].lower()
             else:
                 ad2_gerant = ' '
             ad3_gerant = f"{gerant['code_postal']} - {gerant['ville'].upper()} ({gerant['pays'].capitalize()})"
