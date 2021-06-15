@@ -10,6 +10,48 @@ def load_data(url):
     return pd.read_csv(url)
 
 
+def clean_soc_name(soc_name):
+    """Clean the enterprise's name"""
+    ban_words = ['SA', 'SOCIETE', 'CIVILE', 'IMMOBILIERE']
+    search_name = []
+    for word in soc_name.split():
+        if word not in ban_words:
+            search_name.append(word)
+    return ' '.join(search_name)
+
+
+def print_associates(indice, db):
+    """Print associates names"""
+    gerant = db['representants'][indice]
+    fonction = db['representants'][indice]['qualite'].split()[0].upper()
+    nom_gerant = gerant['nom_complet']
+    try:
+        situation = f"né le {gerant['date_de_naissance_formate']}, {gerant['age']} ans"
+    except KeyError:
+        try:
+            situation = f"siren : {gerant['siren']}"
+        except KeyError:
+            situation = ' '
+
+    if gerant['adresse_ligne_1'] is not None:
+        ad1_gerant = gerant['adresse_ligne_1'].lower()
+    else:
+        ad1_gerant = ' '
+    if gerant['adresse_ligne_2'] is not None:
+        ad2_gerant = gerant['adresse_ligne_2'].lower()
+    else:
+        ad2_gerant = ' '
+    ad3_gerant = f"{gerant['code_postal']} - {gerant['ville']} ({gerant['pays'].capitalize()})"
+    return f"""
+        **{fonction}** : \n
+        {nom_gerant} \n
+        {situation} \n
+        {ad1_gerant} \n
+        {ad2_gerant} \n
+        {ad3_gerant}
+        """
+
+
 # API CONFIG #
 pappers_key = '0036e5513cdb2eb3135d2d96f81760dc46452322158e1edd'
 pappers_enterprise = 'https://api.pappers.fr/v2/entreprise'
@@ -88,7 +130,8 @@ if requete:
     # if siren is false
     elif any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
         name = search['Dénomination (Propriétaire(s) du local)']
-        info = requests.get(pappers_reaserch, params={'api_token': pappers_key, 'q': name})
+        clean_name = clean_soc_name(name.iloc[0])
+        info = requests.get(pappers_reaserch, params={'api_token': pappers_key, 'q': clean_name})
         societe = info.json()
         if societe['total'] == 0:
             st.markdown(
@@ -99,9 +142,11 @@ if requete:
         else:
             siren = societe['resultats'][0]['siren']
             any_soc = True
+
     # if siren is good
     else:
-        siren = search['N° SIREN (Propriétaire(s) du local)']
+        siren = search['N° SIREN (Propriétaire(s) du local)'].drop_duplicates().iloc[0]
+        print(siren)
         any_soc = True
 
     # if siren found
@@ -109,49 +154,53 @@ if requete:
         info = requests.get(pappers_enterprise, params={'api_token': pappers_key, 'siren': siren})
         status = info.json()
 
-        # display the address
-        col1, col2 = st.beta_columns(2)
-        with col1:
+        try:
+            # display the address
             siege = status['siege']
             nom_soc = status['denomination']
-            if siege['adresse_ligne_1'] != None:
-                ad1_soc = siege['adresse_ligne_1'].lower()
-            else:
-                ad1_soc = ' '
-            if siege['adresse_ligne_2'] != None:
-                ad2_soc = siege['adresse_ligne_2'].lower()
-            else:
-                ad2_soc = ' '
-            ad3_soc = f"{siege['code_postal']} - {siege['ville']} ({siege['pays']})"
+            col1, col2 = st.beta_columns(2)
+            with col1:
+                if siege['adresse_ligne_1'] is not None:
+                    ad1_soc = siege['adresse_ligne_1'].lower()
+                else:
+                    ad1_soc = ' '
+                if siege['adresse_ligne_2'] is not None:
+                    ad2_soc = siege['adresse_ligne_2'].lower()
+                else:
+                    ad2_soc = ' '
+                ad3_soc = f"{siege['code_postal']} - {siege['ville']} ({siege['pays']})"
 
+                st.markdown(
+                    f"""
+                    **SIEGE** : \n
+                    {nom_soc}\n
+                    {ad1_soc.lower()} \n
+                    {ad2_soc.lower()} \n
+                    {ad3_soc}
+                    """)
+            with col2:
+                if len(status['representants']) == 1:
+                    st.markdown(print_associates(0, status))
+
+            st.title(' ')
+            index = 0
+            if len(status['representants']) > 1:
+                for ligne in range((len(status['representants'])//2)):
+                    cols = st.beta_columns(2)
+                    for i, col in enumerate(cols):
+                        col.markdown(print_associates(index, status))
+                        index += 1
+                    st.title(' ')
+                if len(status['representants']) % 2 == 1:
+                    col1, col2 = st.beta_columns(2)
+                    with col1:
+                        st.markdown(print_associates(index, status))
+
+        except KeyError:
             st.markdown(
                 f"""
-                **SIEGE** : \n
-                {nom_soc}\n
-                {ad1_soc.lower()} \n
-                {ad2_soc.lower()} \n
-                {ad3_soc}
-                """)
-
-        with col2:
-            gerant = status['representants'][0]
-            nom_gerant = gerant['nom_complet']
-            age_gerant = f"{gerant['date_de_naissance_formate']}, {gerant['age']} ans"
-            if gerant['adresse_ligne_1'] != None:
-                ad1_gerant = gerant['adresse_ligne_1'].lower()
-            else:
-                ad1_gerant = ' '
-            if gerant['adresse_ligne_2'] != None:
-                ad2_gerant = gerant['adresse_ligne_2'].lower()
-            else:
-                ad2_gerant = ' '
-            ad3_gerant = f"{gerant['code_postal']} - {gerant['ville'].upper()} ({gerant['pays'].capitalize()})"
-
-            st.markdown(
-                f"""
-                **GERANT** : \n
-                {nom_gerant}  - {age_gerant} \n
-                {ad1_gerant} \n
-                {ad2_gerant} \n
-                {ad3_gerant}
+                Une erreure s'est produite lors de la récupération des données.
+                Nous vous invitons à effectuer manuellement la recherche de la société
+                **{search['Dénomination (Propriétaire(s) du local)'].iloc[0]}**, 
+                numéro de **SIREN {siren}**.
                 """)
