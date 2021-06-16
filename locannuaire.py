@@ -30,6 +30,8 @@ def print_associates(indice, db):
     except KeyError:
         try:
             situation = f"siren : {gerant['siren']}"
+            if gerant['siren'] is None:
+                situation = ' '
         except KeyError:
             situation = ' '
 
