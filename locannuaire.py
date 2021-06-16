@@ -70,16 +70,21 @@ st.subheader('Outil de prospection des locaux commerciaux')
 st.title(' ')
 
 # choose city
-category = st.selectbox('Choisissez une ville',
-                        [
-                            {'city': 'Paris',
-                             'data': FLPM_PRS},
-                            {'city': 'Bordeaux',
-                             'data': FLPM_BDX},
-                            {'city': 'Lille',
-                             'data': FLPM_LIL}
-                        ],
-                        format_func=lambda option: option['city'])
+col1, col2 = st.beta_columns([1, 2])
+with col2:
+    category = st.selectbox('Choisissez une ville',
+                            [
+                                {'city': 'Paris',
+                                 'data': FLPM_PRS},
+                                {'city': 'Bordeaux',
+                                 'data': FLPM_BDX},
+                                {'city': 'Lille',
+                                 'data': FLPM_LIL}
+                            ],
+                            format_func=lambda option: option['city'])
+with col1:
+    st.radio('Type de base de données',
+             ('Totalité des propriétaires', 'Les locaux commerciaux'))
 
 # load data of the city
 flpm = load_data(category['data'])
@@ -114,8 +119,10 @@ if search.shape[0] > 1:
                         list(select['Dénomination (Propriétaire(s) du local)']))
     search = search[search['Dénomination (Propriétaire(s) du local)'] == name]
 
-st.title(' ')
+st.beta_expander("Sources")
+# st.title(' ')
 requete = st.button('Rechercher')
+# st.beta_expander("Sources")
 st.markdown('___')
 
 if requete:
