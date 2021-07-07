@@ -2,21 +2,31 @@ import requests
 import numpy as np
 import pandas as pd
 import streamlit as st
+from geopy.distance import distance
+
+st.set_page_config(page_title="Locannuaire",
+                   page_icon="⌂",
+                   initial_sidebar_state="collapsed",
+                   )
 
 
 # FONCTIONS #
-@st.cache
-def load_data(url):
-    return pd.read_csv(url)
+
+def load_data(url, sep=','):
+    return pd.read_csv(url, sep=sep)
+
+
+def city_park(depatement, data):
+    """Return park database for specified location"""
+    data['insee'] = data['insee'].astype(str)
+    database = data[data['insee'].str.contains(f'{str(depatement)}...')]
+    return database[['Xlong', 'Ylat', 'nom', 'nb_places', 'gratuit', 'adresse']]
 
 
 def clean_soc_name(soc_name):
     """Clean the enterprise's name"""
     ban_words = ['SA', 'SOCIETE', 'CIVILE', 'IMMOBILIERE']
-    search_name = []
-    for word in soc_name.split():
-        if word not in ban_words:
-            search_name.append(word)
+    search_name = [word for word in soc_name.split() if word not in ban_words]
     return ' '.join(search_name)
 
 
@@ -55,38 +65,86 @@ def print_associates(indice, db):
 
 
 # API CONFIG #
+
+PYRIS_link = 'https://pyris.datajazz.io/api/coords'
 pappers_key = '0036e5513cdb2eb3135d2d96f81760dc46452322158e1edd'
 pappers_enterprise = 'https://api.pappers.fr/v2/entreprise'
 pappers_reaserch = 'https://api.pappers.fr/v2/recherche'
 
 
 # DATA #
+
 FLPM_PRS = 'https://github.com/MickaelKohler/PopMyData/raw/main/Data/FLPM_PRS.csv'
 FLPM_BDX = 'https://github.com/MickaelKohler/PopMyData/raw/main/Data/FLPM_BDX.csv'
 FLPM_LIL = 'https://github.com/MickaelKohler/PopMyData/raw/main/Data/FLPM_LIL.csv'
 
+METRO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/metro_paris.csv'
+PARK = 'https://static.data.gouv.fr/resources/base-nationale-des-lieux-de-stationnement/20210502-172910/bnls-2-.csv'
+BPE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/bpe.csv'
+
+data_park = load_data(PARK, sep=';')
+bpe = load_data(BPE)
+
+
+# SIDEBAR #
+
+st.sidebar.title('Sources')
+st.sidebar.subheader('Base de Données')
+st.sidebar.markdown(
+    '''
+    Données Nationales en OpenData :
+    - Identification des propriétaires, personnes morales, de locaux commerciaux grâce au  
+    [Fichiers des locaux et des parcelles des personnes morales]
+    (https://www.data.gouv.fr/fr/datasets/fichiers-des-locaux-et-des-parcelles-des-personnes-morales/), disponible sous 
+    _Data.gouv.fr_.
+    
+    - Identification des commerces via la
+    [BAse Nationale des Commerces Ouverte]
+    (https://www.data.gouv.fr/fr/datasets/base-nationale-des-commerces-ouverte/),
+    mise à disposition par _OpenStreetMap_.
+    
+    - Localisation des stationnements : 
+    [Base nationale des lieux de stationnement]
+    (https://transport.data.gouv.fr/datasets/base-nationale-des-lieux-de-stationnement/#dataset-other-datasets)
+    
+    Données pour PARIS en OpenData :
+    - Localisation des [Stations de Metro, RER et Tram]
+    (https://www.data.gouv.fr/fr/datasets/stations-et-gares-de-metro-rer-et-tramway-de-la-region-ile-de-france/)
+    via _OpenStreetMap_ 
+
+    ''')
+
+st.sidebar.subheader('API')
+st.sidebar.markdown(
+    '''
+    - Conversion des adresses en coordonnées GPS en adresse et inversement grace à l'
+    [API ADRESSE](https://geo.api.gouv.fr/adresse) mis à disposition par Etalab.
+    
+    - Conversion de coordonnées géographiques en code IRIS pour faire le lien avec l'INSEE grace 
+    à [PYRIS](https://pyris.datajazz.io).
+
+    - Recherche des gérants d'une société via l'API de [PAPPERS](https://www.pappers.fr/api/documentation) 
+    qui centralise les données de l'INSEE et du BODACC. 
+    ''')
+
 
 # MAIN PAGE #
+
 st.title('Bienvenu sur PopMyData')
 st.subheader('Outil de prospection des locaux commerciaux')
 st.title(' ')
 
 # choose city
-col1, col2 = st.beta_columns([1, 2])
-with col2:
-    category = st.selectbox('Choisissez une ville',
-                            [
-                                {'city': 'Paris',
-                                 'data': FLPM_PRS},
-                                {'city': 'Bordeaux',
-                                 'data': FLPM_BDX},
-                                {'city': 'Lille',
-                                 'data': FLPM_LIL}
-                            ],
-                            format_func=lambda option: option['city'])
-with col1:
-    st.radio('Type de base de données',
-             ('Totalité des propriétaires', 'Les locaux commerciaux'))
+category = st.selectbox('Choisissez une ville',
+                        [
+                            {'city': 'Paris',
+                             'data': FLPM_PRS},
+                            {'city': 'Bordeaux',
+                             'data': FLPM_BDX},
+                            {'city': 'Lille',
+                             'data': FLPM_LIL}
+                        ],
+                        format_func=lambda option: option['city'])
 
 # load data of the city
 flpm = load_data(category['data'])
@@ -121,13 +179,183 @@ if search.shape[0] > 1:
                         list(select['Dénomination (Propriétaire(s) du local)']))
     search = search[search['Dénomination (Propriétaire(s) du local)'] == name]
 
-st.beta_expander("Sources")
-# st.title(' ')
+st.title(' ')
 requete = st.button('Rechercher')
-# st.beta_expander("Sources")
 st.markdown('___')
 
 if requete:
+    st.subheader("Caractérisation de l'emplacement")
+    city = category['city']  # add with street and numb
+
+    # geocoding (API)
+    search_adr = '+'.join((str(numb) + ' ' + street + ' ' + city).split())
+    adresse_geo = f"https://api-adresse.data.gouv.fr/search/?q={search_adr}"
+    rep_geo = requests.get(adresse_geo)
+    geo = rep_geo.json()
+    coord_geo = geo['features'][0]['geometry']['coordinates']
+    geo_point = (coord_geo[1], coord_geo[0])
+    lat = coord_geo[1]
+    lon = coord_geo[0]
+
+    # code iris (API)
+    rep_iris = requests.get(PYRIS_link, params={'lat': lat, 'lon': lon})
+    code_iris = rep_iris.json()['complete_code']
+
+    # data locales
+    metro_tram = None
+    tram = None
+    bus = None
+    velo_lib = None
+    if city == 'Paris':
+        dep = 75
+
+        # Metro/Tram (via csv pour gager en rapidité
+        transport = load_data(METRO_PRS)
+        transport['Distance'] = transport['coord_geo'].apply(lambda x: distance(eval(x), geo_point).m)
+        metro_tram = transport[transport['Distance'] < 400]
+
+        # Bus
+        r = requests.get('https://data.ratp.fr/api/records/1.0/search/',
+                         params={'dataset': 'accessibilite-des-arrets-de-bus-ratp',
+                                 'geofilter.distance': f'{lat}, {lon}, 400'})
+        reponse = pd.json_normalize(r.json(), record_path='records')
+        if len(reponse) > 0:
+            reponse.drop_duplicates(['fields.nomptar'], inplace=True, keep='first')
+            bus = reponse[['fields.nomptar', 'fields.dist']].rename(columns={'fields.name': 'Nom de la station',
+                                                                             'fields.dist': 'Distance'})
+
+        # velo libre service
+        r = requests.get('https://opendata.paris.fr/api/records/1.0/search/',
+                         params={'dataset': 'velib-disponibilite-en-temps-reel',
+                                 'geofilter.distance': f'{lat}, {lon}, 400'})
+        reponse = pd.json_normalize(r.json(), record_path='records')
+        if len(reponse) > 0:
+            reponse['Distance'] = reponse['fields.coordonnees_geo'].apply(lambda x: distance(x, geo_point).m)
+            velo_lib = reponse[['fields.name', 'Distance']].rename(columns={'fields.name': 'Nom de la station'})
+
+    elif city == 'Bordeaux':
+        dep = 33
+
+        # Bus/Tram
+        trans_link = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW&typename=sv_arret_p&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
+        r = requests.get(trans_link)
+        reponse = pd.json_normalize(r.json(), record_path='features')
+        if len(reponse) > 0:
+            reponse.drop_duplicates(['properties.libelle', 'properties.vehicule'], inplace=True, keep='last')
+            reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]), geo_point).m)
+            transport = reponse[['properties.libelle', 'properties.vehicule', 'Distance']].rename(columns={'properties.libelle': 'Nom de la station',
+                                                                                                           'properties.vehicule' : 'Type'})
+            bus = transport[transport['Type'] == 'BUS']
+            metro_tram = transport[transport['Type'] == 'TRAM']
+
+        # velo libre service
+        velo_link = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW&typename=ci_vcub_p&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
+        r = requests.get(velo_link)
+        reponse = pd.json_normalize(r.json(), record_path='features')
+        if len(reponse) > 0:
+            reponse.drop_duplicates(['properties.nom'], inplace=True, keep='last')
+            reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]), geo_point).m)
+            velo_lib = reponse[['properties.nom', 'Distance']].rename(columns={'properties.nom': 'Nom de la station'})
+
+    elif city == 'Lille':
+        dep = 59
+
+        # Metro
+        r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
+                         params={'dataset': 'stations-metro',
+                                 'geofilter.distance': f'{lat}, {lon}, 400'})
+        reponse = pd.json_normalize(r.json(), record_path='records')
+        if len(reponse) > 0:
+            metro = reponse[['fields.nom_statio', 'fields.dist', 'fields.ligne']]
+            metro.rename(columns={'fields.nom_statio': 'Nom de la station',
+                                  'fields.dist': 'Distance', 'fields.ligne': 'Ligne'}, inplace=True)
+
+        # Bus/Tram
+        r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
+                         params={'dataset': 'ilevia-physicalstop',
+                                 'geofilter.distance': f'{lat}, {lon}, 400'})
+        reponse = pd.json_normalize(r.json(), record_path='records')
+        if len(reponse) > 0:
+            reponse.drop_duplicates(['fields.commercialstopname', 'fields.publiclinecode'], inplace=True, keep='last')
+            transport = reponse[['fields.transportmoderef', 'fields.commercialstopname',
+                                 'fields.publiclinecode', 'fields.dist']]
+            transport.rename(columns={'fields.commercialstopname': 'Nom de la station',
+                                      'fields.dist': 'Distance',
+                                      'fields.transportmoderef': 'Type',
+                                      'fields.publiclinecode': 'Ligne'}, inplace=True)
+            bus = transport[transport['Type'] == 'B']
+            tram = transport[transport['Type'] == 'T']
+        metro_tram = pd.concat([metro, tram])
+
+        # velo libre service
+        r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
+                         params={'dataset': 'vlille-realtime',
+                                 'geofilter.distance': f'{lat}, {lon}, 400'})
+        reponse = pd.json_normalize(r.json(), record_path='records')
+        reponse['Distance'] = reponse['fields.geo'].apply(lambda x: distance(x, geo_point).m)
+        velo_lib = reponse[['fields.nom', 'fields.adresse', 'Distance']].rename(columns={'fields.nom': 'Nom de la station',
+                                                                                         'fields.adresse': 'Adresse'})
+
+    # data nationale : parking
+    index = 0
+    parking = city_park(dep, data_park)
+    parking['Distance'] = 0
+    for geo_park in zip(parking.iloc[:, 1], parking.iloc[:, 0]):
+        parking['Distance'].iloc[index] = distance(geo_park, geo_point).m
+        index += 1
+    nb_parking = len(parking[parking['Distance'] < 400])
+
+    # data nationale : BPE
+    bpe = bpe[bpe['DEP'] == dep]
+    bpe['Distance'] = bpe['coord_geo'].apply(lambda x: distance(eval(x), geo_point).m)
+    zone_bpe = bpe[bpe['Distance'] < 400].sort_values('Distance').value_counts('Equipement')
+
+
+    # indice attractivite
+    indice_access = pd.DataFrame(np.zeros(5, int),
+                                 index=['Gare', 'Metro/Tram', 'Bus', 'Velo_ls', 'Parking'],
+                                 columns=['Total'])
+
+    indice_quartier = pd.DataFrame(np.zeros(9, int),
+                                   index=['Bureau de poste', 'École maternelle', 'Enseignement Secondaire',
+                                          'Enseignement supérieur', 'Zone Sports', 'Cinéma', 'Espace Culturel',
+                                          'Bibliothèque', 'Hôtel'],
+                                   columns=['Total'])
+
+    for el, val in zip(zone_bpe.index, zone_bpe):
+        if el in indice_quartier.index:
+            indice_quartier.loc[el] = val
+        elif el in indice_access.index:
+            indice_access.loc[el] = val
+    if metro_tram is not None:
+        indice_access.loc['Metro/Tram'] = len(metro_tram)
+    if bus is not None:
+        indice_access.loc['Bus'] = len(bus)
+    if velo_lib is not None:
+        indice_access.loc['Velo_ls'] = len(velo_lib)
+    indice_access.loc['Parking'] = nb_parking
+
+    # print
+    col1, col2, col3 = st.beta_columns(3)
+    with col1:
+        st.markdown(f'**Longitude** : {lon}')
+    with col2:
+        st.markdown(f'**Latitude** : {lat}')
+    with col3:
+        st.markdown(f'**Code Iris** : {code_iris}')
+    st.title(' ')
+
+    col1, col2 = st.beta_columns(2)
+    with col1:
+        st.markdown("Indice d'accessiblité")
+        st.dataframe(indice_access)
+    with col2:
+        st.markdown("Indice de vie du quartier")
+        st.dataframe(indice_quartier)
+
+    st.markdown('___')
+    st.subheader('Coordonnées du Propriétaires')
+
     # if no owner found
     any_soc = False
     if search.shape[0] == 0:
@@ -137,7 +365,8 @@ if requete:
             ou l'adresse indiquée n'existe pas
             """)
     # if siren is false
-    elif any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
+    elif any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) \
+            or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
         name = search['Dénomination (Propriétaire(s) du local)']
         clean_name = clean_soc_name(name.iloc[0])
         info = requests.get(pappers_reaserch, params={'api_token': pappers_key, 'q': clean_name})
