@@ -1,7 +1,10 @@
 import requests
+import folium
+from folium import plugins
 import numpy as np
 import pandas as pd
 import streamlit as st
+from streamlit_folium import folium_static
 from geopy.distance import distance
 
 st.set_page_config(page_title="Locannuaire",
@@ -78,13 +81,17 @@ FLPM_PRS = 'https://github.com/MickaelKohler/PopMyData/raw/main/Data/FLPM_PRS.cs
 FLPM_BDX = 'https://github.com/MickaelKohler/PopMyData/raw/main/Data/FLPM_BDX.csv'
 FLPM_LIL = 'https://github.com/MickaelKohler/PopMyData/raw/main/Data/FLPM_LIL.csv'
 
+BANCO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/banco_prs.csv'
+BANCO_BDX = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/banco_bdx.csv'
+BANCO_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/banco_lil.csv'
+
 METRO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/metro_paris.csv'
 PARK = 'https://static.data.gouv.fr/resources/base-nationale-des-lieux-de-stationnement/20210502-172910/bnls-2-.csv'
+INSEE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/insee.csv'
 BPE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/bpe.csv'
 
 data_park = load_data(PARK, sep=';')
 bpe = load_data(BPE)
-
 
 # SIDEBAR #
 
@@ -138,16 +145,20 @@ st.title(' ')
 category = st.selectbox('Choisissez une ville',
                         [
                             {'city': 'Paris',
-                             'data': FLPM_PRS},
+                             'flpm': FLPM_PRS,
+                             'banco': BANCO_PRS},
                             {'city': 'Bordeaux',
-                             'data': FLPM_BDX},
+                             'flpm': FLPM_BDX,
+                             'banco': BANCO_BDX},
                             {'city': 'Lille',
-                             'data': FLPM_LIL}
+                             'flpm': FLPM_LIL,
+                             'banco': BANCO_LIL}
                         ],
                         format_func=lambda option: option['city'])
 
 # load data of the city
-flpm = load_data(category['data'])
+flpm = load_data(category['flpm'])
+banco = load_data(category['banco'])
 address_temp = flpm['Nom voie (Adresse du local)'].unique()
 
 # choose address
@@ -295,6 +306,12 @@ if requete:
         reponse['Distance'] = reponse['fields.geo'].apply(lambda x: distance(x, geo_point).m)
         velo_lib = reponse[['fields.nom', 'fields.adresse', 'Distance']].rename(columns={'fields.nom': 'Nom de la station',
                                                                                          'fields.adresse': 'Adresse'})
+    # data BANCO
+    index = 0
+    banco['distance'] = 0
+    for geo_shop in zip(banco.iloc[:, 1], banco.iloc[:, 0]):
+        banco['distance'][index] = distance(geo_shop, geo_point).m
+        index += 1
 
     # data nationale : parking
     index = 0
@@ -310,17 +327,24 @@ if requete:
     bpe['Distance'] = bpe['coord_geo'].apply(lambda x: distance(eval(x), geo_point).m)
     zone_bpe = bpe[bpe['Distance'] < 400].sort_values('Distance').value_counts('Equipement')
 
+    # data nationale : INSEE
+    insee = load_data(INSEE).set_index('IRIS').loc[int(code_iris)]
 
     # indice attractivite
     indice_access = pd.DataFrame(np.zeros(5, int),
                                  index=['Gare', 'Metro/Tram', 'Bus', 'Velo_ls', 'Parking'],
                                  columns=['Total'])
-
     indice_quartier = pd.DataFrame(np.zeros(9, int),
                                    index=['Bureau de poste', 'École maternelle', 'Enseignement Secondaire',
                                           'Enseignement supérieur', 'Zone Sports', 'Cinéma', 'Espace Culturel',
                                           'Bibliothèque', 'Hôtel'],
                                    columns=['Total'])
+    indice_pop = pd.DataFrame(np.zeros(2, int),
+                              index=['Population Active', 'Revenus médiant'],
+                              columns=['Total'])
+    indice_visibilite = pd.DataFrame(np.zeros(1, int),
+                                     index=['Tissu commercial'],
+                                     columns=['Total'])
 
     for el, val in zip(zone_bpe.index, zone_bpe):
         if el in indice_quartier.index:
@@ -334,6 +358,9 @@ if requete:
     if velo_lib is not None:
         indice_access.loc['Velo_ls'] = len(velo_lib)
     indice_access.loc['Parking'] = nb_parking
+    indice_pop.loc['Population Active'] = insee['Population Active']
+    indice_pop.loc['Revenus médiant'] = insee['Revenus Medians']
+    indice_visibilite.loc['Tissu commercial'] = len(banco[banco['distance'] < 200])
 
     # print
     col1, col2, col3 = st.beta_columns(3)
@@ -352,6 +379,33 @@ if requete:
     with col2:
         st.markdown("Indice de vie du quartier")
         st.dataframe(indice_quartier)
+
+    col1, col2 = st.beta_columns(2)
+    with col1:
+        st.markdown("Indice Population")
+        st.dataframe(indice_pop)
+    with col2:
+        st.markdown("Indice de visiblité")
+        st.dataframe(indice_visibilite)
+
+    st.markdown('___')
+    st.subheader('Situation du quartier')
+
+    type_name = ['shoes', 'garden_center', 'department_store', 'cosmetics', 'leather', 'perfumery', 'beauty',
+                 'cafe', 'restaurant', 'bar', 'interior-decoration', 'florist', 'pharmacy', 'jewelry', 'bank',
+                 'hairdresser', 'convenience', 'clothes', 'optician', 'pastry', 'bakery', 'supermarket']
+    df_temp = banco[banco['type'].isin(type_name)]
+
+    map = folium.Map([lat, lon], zoom_start=16)
+
+    popups = [item for index, item in df_temp['name'].iteritems()]
+    heat_map = plugins.HeatMap(df_temp[["Y", "X"]], name='_heatmap')
+    map.add_child(heat_map)
+
+    marker_cluster = plugins.MarkerCluster(df_temp[["Y", "X"]], popups=popups).add_to(map)
+    map.add_child(marker_cluster)
+
+    folium_static(map)
 
     st.markdown('___')
     st.subheader('Coordonnées du Propriétaires')
