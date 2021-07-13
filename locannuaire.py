@@ -9,10 +9,39 @@ from streamlit_folium import folium_static
 from geopy.distance import distance
 import fontawesome as fa
 
+# CONFIG #
+
 st.set_page_config(page_title="Locannuaire",
                    page_icon="⌂",
                    initial_sidebar_state="collapsed",
                    )
+
+st.markdown("""
+    <style>
+    .reportview-container { 
+        background: url("https://github.com/MickaelKohler/PopMyData/raw/version-alpha/background_fin.jpg");
+    }
+    .titre {
+        font-size:16px;
+        font-weight:normal;
+        margin:0px;
+        color:black;
+    }
+    .text {
+        font-size:16px;
+        font-weight:normal;
+        color:lightgray;
+    }
+    .sous_indice {
+        font-size:60px;
+        font-weight:bold;
+    }
+    .indice_total {
+        font-size:100px;
+        font-weight:bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # FONCTIONS #
 
@@ -122,48 +151,63 @@ def visibility_rating(table, departement):
     """
     # transport flow
     if departement == 75:
-        coef_bar_max = 3
-        coef_bar_mid = 2
-        coef_mall = 1
         if table.iloc[5, 0] >= 20000:
             table.iloc[5, 1] = 10
         elif table.iloc[5, 0] >= 10000:
             table.iloc[5, 1] = 5
 
-    elif departement == 59:
-        coef_bar_max = 3
-        coef_bar_mid = 2
-        coef_mall = 1
+    if departement == 59:
         if table.iloc[5, 0] >= 10000:
             table.iloc[5, 1] = 10
         elif table.iloc[5, 0] >= 5000:
             table.iloc[5, 1] = 5
-    else:
-        coef_bar_max = 7
-        coef_bar_mid = 4
-        coef_mall = 3
 
-    # shops nearby
-    if table.iloc[0, 0] >= 100:
-        table.iloc[0, 1] = 20
-    elif table.iloc[0, 0] >= 70:
-        table.iloc[0, 1] = 15
-    elif table.iloc[0, 0] >= 40:
-        table.iloc[0, 1] = 10
-    elif table.iloc[0, 0] >= 10:
-        table.iloc[0, 1] = 5
+    if departement in [75, 59]:
+        coef_bar_max = -3
+        coef_bar_mid = -2
+        coef_mall = 1
+        if table.iloc[0, 0] >= 100:
+            table.iloc[0, 1] = 20
+        elif table.iloc[0, 0] >= 70:
+            table.iloc[0, 1] = 17
+        elif table.iloc[0, 0] >= 50:
+            table.iloc[0, 1] = 14
+        elif table.iloc[0, 0] >= 40:
+            table.iloc[0, 1] = 10
+        elif table.iloc[0, 0] >= 30:
+            table.iloc[0, 1] = 6
+        elif table.iloc[0, 0] >= 20:
+            table.iloc[0, 1] = 3
+        elif table.iloc[0, 0] >= 10:
+            table.iloc[0, 1] = 1
+    else:
+        if table.iloc[0, 0] >= 100:
+            table.iloc[0, 1] = 30
+        elif table.iloc[0, 0] >= 70:
+            table.iloc[0, 1] = 25
+        elif table.iloc[0, 0] >= 50:
+            table.iloc[0, 1] = 20
+        elif table.iloc[0, 0] >= 40:
+            table.iloc[0, 1] = 15
+        elif table.iloc[0, 0] >= 30:
+            table.iloc[0, 1] = 10
+        elif table.iloc[0, 0] >= 20:
+            table.iloc[0, 1] = 5
+        elif table.iloc[0, 0] >= 10:
+            table.iloc[0, 1] = 1
+        coef_bar_max = -5
+        coef_bar_mid = -3
+        coef_mall = 3
 
     # bar and restaurants proportion
     if table.iloc[1, 0] >= 90:
-        table.iloc[1, 1] = 0
-    elif table.iloc[1, 0] >= 70:
-        table.iloc[1, 1] = 1
-    elif table.iloc[1, 0] >= 50:
-        table.iloc[1, 1] = coef_bar_mid
-    elif table.iloc[1, 0] >= 20:
         table.iloc[1, 1] = coef_bar_max
-    elif table.iloc[1, 0] >= 10:
+    elif table.iloc[1, 0] >= 60:
         table.iloc[1, 1] = coef_bar_mid
+    elif table.iloc[1, 0] >= 10:
+        table.iloc[1, 1] = 0
+    elif table.iloc[1, 0] <= 10:
+        table.iloc[1, 1] = -1
 
     # malls
     table.iloc[2, 1] = coef_mall if table.iloc[2, 0] > 1 else 0
@@ -213,143 +257,129 @@ def carte(df, coord):
     marker_adresse = folium.Marker(location=coord)
     marker_adresse.add_to(m)
 
-    # Création d'un cluster qui contiendra toutes les couches
     mcg = plugins.MarkerCluster(control=False)
     m.add_child(mcg)
 
-    # Création de la couche n°1 contenant toutes les données
-    g1 = folium.plugins.FeatureGroupSubGroup(mcg, "Tout", show=False)
+    # Création des couches pour chaques types de magasins
+    g1 = folium.plugins.FeatureGroupSubGroup(mcg, "Tout", show=True)
     m.add_child(g1)
-
-    for index, row in df[["X", "Y", "name"]].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"]).add_to(g1)
-    plugins.HeatMap(df[["Y", "X"]]).add_to(g1)
-
-    # Création de la couche n°2 contenant les données des restaurants
-    g2 = folium.plugins.FeatureGroupSubGroup(mcg, "restaurants", show=False)
+    g2 = folium.plugins.FeatureGroupSubGroup(mcg, "restaurant", show=False)
     m.add_child(g2)
-
-    for index, row in df[df['type'] == "restaurant"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-cutlery", prefix='fa')).add_to(g2)
-    plugins.HeatMap(df[df['type'] == "restaurant"][["Y", "X"]]).add_to(g2)
-
-    # Création de la couche n°3 contenant les données des magasins de vetements
     g3 = folium.plugins.FeatureGroupSubGroup(mcg, "Vetements", show=False)
     m.add_child(g3)
-
-    for index, row in df[df['type'] == "clothes"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-institution", prefix='fa')).add_to(g3)
-    plugins.HeatMap(df[df['type'] == "clothes"][["Y", "X"]]).add_to(g3)
-
-    # Création de la couche n°4 contenant les données des magasins de beauté
     g4 = folium.plugins.FeatureGroupSubGroup(mcg, "Beauté", show=False)
     m.add_child(g4)
-
-    for index, row in df[df['type'] == "beauty"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-child", prefix='fa')).add_to(g4)
-    plugins.HeatMap(df[df['type'] == "beauty"][["Y", "X"]]).add_to(g4)
-
-    # Création de la couche n°5 contenant les données les bars
     g5 = folium.plugins.FeatureGroupSubGroup(mcg, "Bar", show=False)
     m.add_child(g5)
-
-    for index, row in df[df['type'] == "bar"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-beer", prefix='fa')).add_to(g5)
-    plugins.HeatMap(df[df['type'] == "bar"][["Y", "X"]]).add_to(g5)
-
-    # Création de la couche n°6 contenant les données les bars
     g6 = folium.plugins.FeatureGroupSubGroup(mcg, "Boulangerie", show=False)
     m.add_child(g6)
-
-    for index, row in df[df['type'] == "bakery"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-birthday-cake", prefix='fa')).add_to(g6)
-    plugins.HeatMap(df[df['type'] == "bakery"][["Y", "X"]]).add_to(g6)
-
-    # Création de la couche n°7 contenant les données les cafés
     g7 = folium.plugins.FeatureGroupSubGroup(mcg, "Café", show=False)
     m.add_child(g7)
-
-    for index, row in df[df['type'] == "cafe"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-coffee", prefix='fa')).add_to(g7)
-    plugins.HeatMap(df[df['type'] == "cafe"][["Y", "X"]]).add_to(g7)
-
-    # Création de la couche n°8 contenant les données les Banque
     g8 = folium.plugins.FeatureGroupSubGroup(mcg, "Banques", show=False)
     m.add_child(g8)
-
-    for index, row in df[df['type'] == "bank"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-bank", prefix='fa')).add_to(g8)
-    plugins.HeatMap(df[df['type'] == "bank"][["Y", "X"]]).add_to(g8)
-
-    # Création de la couche n°9 contenant les données les Banque
     g9 = folium.plugins.FeatureGroupSubGroup(mcg, "pharmacie", show=False)
     m.add_child(g9)
-
-    for index, row in df[df['type'] == "pharmacy"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-plus", prefix='fa')).add_to(g9)
-    plugins.HeatMap(df[df['type'] == "pharmacy"][["Y", "X"]]).add_to(g9)
-
-    # Création de la couche n°10 contenant les données les Banque
-    g10 = folium.plugins.FeatureGroupSubGroup(mcg, "convenience", show=False)
+    g10 = folium.plugins.FeatureGroupSubGroup(mcg, "commodité", show=False)
     m.add_child(g10)
-
-    for index, row in df[df['type'] == "convenience"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-shopping-basket", prefix='fa')).add_to(g10)
-    plugins.HeatMap(df[df['type'] == "convenience"][["Y", "X"]]).add_to(g10)
-
-    # Création de la couche n°11 contenant les données les Banque
     g11 = folium.plugins.FeatureGroupSubGroup(mcg, "Supermarché", show=False)
     m.add_child(g11)
-
-    for index, row in df[df['type'] == "supermarket"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-shopping-bag", prefix='fa')).add_to(g11)
-    plugins.HeatMap(df[df['type'] == "supermarket"][["Y", "X"]]).add_to(g11)
-
-    # Création de la couche n°12 contenant les données les Banque
     g12 = folium.plugins.FeatureGroupSubGroup(mcg, "Opticien", show=False)
     m.add_child(g12)
-
-    for index, row in df[df['type'] == "optician"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-bullseye", prefix='fa')).add_to(g12)
-    plugins.HeatMap(df[df['type'] == "optician"][["Y", "X"]]).add_to(g12)
-
-    # Création de la couche n°10 contenant les données les Banque
     g13 = folium.plugins.FeatureGroupSubGroup(mcg, "Fleuriste", show=False)
     m.add_child(g13)
-
-    for index, row in df[df['type'] == "florist"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-cab", prefix='fa')).add_to(g13)
-    plugins.HeatMap(df[df['type'] == "florist"][["Y", "X"]]).add_to(g13)
-
-    # Création de la couche n°10 contenant les données les Banque
     g14 = folium.plugins.FeatureGroupSubGroup(mcg, "Bijouterie", show=False)
     m.add_child(g14)
-
-    for index, row in df[df['type'] == "jewelry"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-diamond", prefix='fa')).add_to(g14)
-    plugins.HeatMap(df[df['type'] == "jewelry"][["Y", "X"]]).add_to(g14)
-
-    # Création de la couche n°10 contenant les données les Banque
     g15 = folium.plugins.FeatureGroupSubGroup(mcg, "Centre commercial", show=False)
     m.add_child(g15)
 
-    for index, row in df[df['type'] == "department_store"].iterrows():
-        folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
-                      icon=folium.Icon(color="cadetblue", icon="fa-cart-plus", prefix='fa')).add_to(g15)
-    plugins.HeatMap(df[df['type'] == "department_store"][["Y", "X"]]).add_to(g15)
+    for index, row in df[["X", "Y", "name", "type"]].iterrows():
+        if row["type"] == "restaurant":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-cutlery", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-cutlery", prefix='fa')).add_to(g2)
+        elif row["type"] == "clothes":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-black-tie", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-black-tie", prefix='fa')).add_to(g3)
+        elif row["type"] == "beauty":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-scissors", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-scissors", prefix='fa')).add_to(g4)
+        elif row["type"] == "bar":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-beer", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-beer", prefix='fa')).add_to(g5)
+        elif row["type"] == "bakery":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-bold", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-bold", prefix='fa')).add_to(g6)
+        elif row["type"] == "cafe":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-coffee", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-coffee", prefix='fa')).add_to(g7)
+        elif row["type"] == "bank":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-bank", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-bank", prefix='fa')).add_to(g8)
+        elif row["type"] == "pharmacy":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-plus", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-plus", prefix='fa')).add_to(g9)
+        elif row["type"] == "convenience":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-shopping-basket", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-shopping-basket", prefix='fa')).add_to(g10)
+        elif row["type"] == "supermarket":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-shopping-bag", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-shopping-bag", prefix='fa')).add_to(g11)
+        elif row["type"] == "optician":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-eye", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-eye", prefix='fa')).add_to(g12)
+        elif row["type"] == "florist":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-leaf", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-leaf", prefix='fa')).add_to(g13)
+        elif row["type"] == "jewelry":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-diamond", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-diamond", prefix='fa')).add_to(g14)
+        elif row["type"] == "department_store":
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-cart-plus", prefix='fa')).add_to(g1)
+            folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
+                          icon=folium.Icon(color="cadetblue", icon="fa-cart-plus", prefix='fa')).add_to(g15)
+
+    # Les heatmaps
+    plugins.HeatMap(df[["Y", "X"]], min_opacity=0.4).add_to(g1)
+    plugins.HeatMap(df[df['type'] == "restaurant"][["Y", "X"]], min_opacity=0.4).add_to(g2)
+    plugins.HeatMap(df[df['type'] == "clothes"][["Y", "X"]], min_opacity=0.4).add_to(g3)
+    plugins.HeatMap(df[df['type'] == "beauty"][["Y", "X"]], min_opacity=0.4).add_to(g4)
+    plugins.HeatMap(df[df['type'] == "bar"][["Y", "X"]], min_opacity=0.4).add_to(g5)
+    plugins.HeatMap(df[df['type'] == "bakery"][["Y", "X"]], min_opacity=0.4).add_to(g6)
+    plugins.HeatMap(df[df['type'] == "cafe"][["Y", "X"]], min_opacity=0.4).add_to(g7)
+    plugins.HeatMap(df[df['type'] == "bank"][["Y", "X"]], min_opacity=0.4).add_to(g8)
+    plugins.HeatMap(df[df['type'] == "pharmacy"][["Y", "X"]], min_opacity=0.4).add_to(g9)
+    plugins.HeatMap(df[df['type'] == "convenience"][["Y", "X"]], min_opacity=0.4).add_to(g10)
+    plugins.HeatMap(df[df['type'] == "supermarket"][["Y", "X"]], min_opacity=0.4).add_to(g11)
+    plugins.HeatMap(df[df['type'] == "optician"][["Y", "X"]], min_opacity=0.4).add_to(g12)
+    plugins.HeatMap(df[df['type'] == "florist"][["Y", "X"]], min_opacity=0.4).add_to(g13)
+    plugins.HeatMap(df[df['type'] == "jewelry"][["Y", "X"]], min_opacity=0.4).add_to(g14)
+    plugins.HeatMap(df[df['type'] == "department_store"][["Y", "X"]], min_opacity=0.4).add_to(g15)
 
     minimap = plugins.MiniMap()
     m.add_child(minimap)
@@ -373,7 +403,17 @@ def carte(df, coord):
         opacity=0,
     ).add_to(m)
 
-    plugins.Geocoder().add_to(m)
+    plugins.SemiCircle(
+        (coord),
+        radius=200,
+        direction=360,
+        arc=359.99,
+        color="red",
+        fill_color="red",
+        opacity=0,
+    ).add_to(m)
+
+    plugins.Geocoder(position="bottomleft").add_to(m)
 
     folium.LayerControl(collapsed=True).add_to(m)
 
@@ -520,6 +560,7 @@ with col2:
                            help='La recherche va chercher le nom de rue le plus proche dans la base de données.')
 
 match = search_engine(street, flpm['Adresse'])
+search_in_flpm = True
 if len(match) > 1:
     street = st.selectbox("Veuillez préciser l'adresse selectionnée", list(match.keys()),
                          help='''Si aucune adresse ne correspond à votre rechercher, 
@@ -527,7 +568,7 @@ if len(match) > 1:
 elif len(match) == 1:
     street = list(match.keys())[0]
 else:
-    street = None
+    search_in_flpm = False
 
 # filter data
 search = flpm[(flpm['Adresse'] == street) &
@@ -555,7 +596,6 @@ st.markdown('___')
 
 if requete:
     city = category['city']  # add with street and numb
-
     # geocoding (API)
     search_adr = '+'.join((str(numb) + ' ' + street + ' ' + city).split())
     adresse_geo = f"https://api-adresse.data.gouv.fr/search/?q={search_adr}"
@@ -739,8 +779,9 @@ if requete:
     temp_tab = local_banco['cat_mag'].value_counts(normalize=True)
     #indice_visibilite.loc['Proporition Grandes Enseignes'] = [(temp_tab[1]*100).round(2), 0]
     #indice_visibilite.loc["Proportion d'Indépendants"] = [(temp_tab[0]*100).round(2), 0]
-    temp_tab = len(local_banco[local_banco['type'].isin(['bar', 'restaurant'])]) / len(local_banco)
-    indice_visibilite.loc['Proporiton Restaurants/Bars'] = [round(temp_tab*100, 2), 0]
+    if len(local_banco) > 0:
+        temp_tab = len(local_banco[local_banco['type'].isin(['bar', 'restaurant'])]) / len(local_banco)
+        indice_visibilite.loc['Proporiton Restaurants/Bars'] = [round(temp_tab*100, 2), 0]
 
     final_viz = visibility_rating(indice_visibilite, dep)
     final_access = access_rating(indice_access)
@@ -752,12 +793,14 @@ if requete:
     col1, col2 = st.beta_columns([2, 1])
     with col1:
         st.title(' ')
-        st.subheader("Indice d'attractivtié de l'emplacement : ")
+        st.subheader("Indice d'attractivtié de l'emplacement")
+        st.write(geo['features'][0]['properties']['label'])
     with col2:
         color = 'green' if final_note > 70 else 'tomato'
         st.markdown(
             f'''
-            <div style="color:{color}; font-weight:bold; font-size:100px"> {final_note} </div>
+            <p class="indice_total", style="color:{color}">{final_note}
+                <span class="text">/ 100</span> </p>
             ''', unsafe_allow_html=True)
 
     st.title(' ')
@@ -766,29 +809,33 @@ if requete:
         color = 'green' if final_viz.iloc[-1, 1] > 15 else 'tomato'
         st.markdown(
             f'''
-            <div> Indice de visibilité </div>
-            <div style="color:{color}; font-weight:bold; font-size:60px"> {int(final_viz.iloc[-1, 1])} </div>
+            <p class="titre">Indice d'accessiblité</p>
+            <p class="sous_indice", style="color:{color}">{int(final_viz.iloc[-1, 1])} 
+                <span class="text">/ 30</span> </p>
             ''', unsafe_allow_html=True)
     with col2:
         color = 'green' if final_access.iloc[-1, 1] > 15 else 'tomato'
         st.markdown(
             f'''
-            <div> Indice d'accessiblité </div>
-            <div style="color:{color}; font-weight:bold; font-size:60px"> {int(final_access.iloc[-1, 1])} </div>
+            <p class="titre">Indice d'accessiblité</p>
+            <p class="sous_indice", style="color:{color}">{int(final_access.iloc[-1, 1])}
+                <span class="text">/ 30</span></p>
             ''', unsafe_allow_html=True)
     with col3:
         color = 'green' if final_pop.iloc[-1, 1] > 10 else 'tomato'
         st.markdown(
             f'''
-            <div> Indice de population </div>
-            <div style="color:{color}; font-weight:bold; font-size:60px"> {int(final_pop.iloc[-1, 1])} </div>
+            <p class="titre">Indice d'accessiblité</p>
+            <p class="sous_indice", style="color:{color}">{int(final_pop.iloc[-1, 1])}
+                <span class="text">/ 20</span></p>
             ''', unsafe_allow_html=True)
     with col4:
         color = 'green' if final_dist.iloc[-1, 1] > 10 else 'tomato'
         st.markdown(
             f'''
-            <div> Indice du quartier </div>
-            <div style="color:{color}; font-weight:bold; font-size:60px"> {int(final_dist.iloc[-1, 1])} </div>
+            <p class="titre">Indice d'accessiblité</p>
+            <p class="sous_indice", style="color:{color}">{int(final_dist.iloc[-1, 1])}
+                <span class="text">/ 20</span></p>
             ''', unsafe_allow_html=True)
 
     st.title(' ')
@@ -826,7 +873,7 @@ if requete:
 
     # if no owner found
     any_soc = False
-    if search.shape[0] == 0:
+    if search.shape[0] == 0 or search_in_flpm:
         st.markdown(
             """
             Il n'y a pas de propriétaire identifié pour le de local commercial situé à cette adresse, 
