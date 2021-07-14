@@ -1,2 +1,7 @@
 numpy
 pandas
+fuzzywuzzy
+folium
+streamlit_folium
+geopy
+fontawesome
