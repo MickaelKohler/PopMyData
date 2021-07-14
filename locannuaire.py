@@ -44,6 +44,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+
 # FONCTIONS #
 
 
@@ -71,9 +72,9 @@ def clean_metro_paris(stop_name):
     )
 
 
-def search_engine(street, adresses):
+def search_engine(search_street, adresses):
     """
-    :param street: takes an address selected by the user
+    :param search_street: takes an address selected by the user
     :param adresses: list of addresses
     :return: a dict with all addresses if the match is over 80% between user's address and addresses in the list
     """
@@ -92,7 +93,7 @@ def search_engine(street, adresses):
 
     cible = ''.join(
         internat[letter] if letter in internat else letter
-        for letter in street.strip().upper()
+        for letter in search_street.strip().upper()
     )
 
     return {
@@ -293,7 +294,7 @@ def carte(df, coord):
     g15 = folium.plugins.FeatureGroupSubGroup(mcg, "Centre commercial", show=False)
     m.add_child(g15)
 
-    for index, row in df[["X", "Y", "name", "type"]].iterrows():
+    for number, row in df[["X", "Y", "name", "type"]].iterrows():
         if row["type"] == "restaurant":
             folium.Marker(location=[row["Y"], row["X"]], popup=row["name"],
                           icon=folium.Icon(color="cadetblue", icon="fa-cutlery", prefix='fa')).add_to(g1)
@@ -547,7 +548,7 @@ category = st.selectbox('Choisissez une ville : ',
                              'flpm': FLPM_LIL,
                              'banco': BANCO_LIL}
                         ],
-                        format_func=lambda option: option['city'])
+                        format_func=lambda x: x['city'])
 
 # load data of the city
 flpm = load_data(category['flpm'])
@@ -576,6 +577,7 @@ with col4:
 # search correspondance between street and flpm data
 search_in_flpm = False
 match = search_engine(street, flpm['Adresse'])
+
 if len(match) > 1:
     st.title(' ')
     street = st.selectbox("Veuillez préciser l'adresse selectionnée", list(match.keys()),
@@ -627,7 +629,7 @@ elif requete:
 
     if indice_attractivite:
         st.markdown('___')
-        with st.spinner("Calcul de l'indice d'attractivtié"):
+        with st.spinner("Calcul de l'indice d'attractivtié..."):
             # data locales
             metro_tram, metro, tram, bus, velo_lib = None, None, None, None, None
             if city == 'Paris':
@@ -662,27 +664,31 @@ elif requete:
 
             elif city == 'Bordeaux':
                 dep = 33
+                API = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW'
+                geom = '&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
 
                 # Bus/Tram
-                trans_link = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW&typename=sv_arret_p&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
-                r = requests.get(trans_link)
+                r = requests.get(API + '&typename=sv_arret_p' + geom)
                 reponse = pd.json_normalize(r.json(), record_path='features')
                 if len(reponse) > 0:
                     reponse.drop_duplicates(['properties.libelle', 'properties.vehicule'], inplace=True, keep='last')
-                    reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]), geo_point).m)
-                    transport = reponse[['properties.libelle', 'properties.vehicule', 'Distance']].rename(columns={'properties.libelle': 'Nom de la station',
-                                                                                                                   'properties.vehicule': 'Type'})
+                    reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]),
+                                                                                                   geo_point).m)
+                    transport = reponse[['properties.libelle', 'properties.vehicule', 'Distance']]
+                    transport.rename(columns={'properties.libelle': 'Nom de la station',
+                                              'properties.vehicule': 'Type'}, inplace=True)
                     bus = transport[transport['Type'] == 'BUS']
                     metro_tram = transport[transport['Type'] == 'TRAM']
 
                 # velo libre service
-                velo_link = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW&typename=ci_vcub_p&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
-                r = requests.get(velo_link)
+                r = requests.get(API + '&typename=ci_vcub_p' + geom)
                 reponse = pd.json_normalize(r.json(), record_path='features')
                 if len(reponse) > 0:
                     reponse.drop_duplicates(['properties.nom'], inplace=True, keep='last')
-                    reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]), geo_point).m)
-                    velo_lib = reponse[['properties.nom', 'Distance']].rename(columns={'properties.nom': 'Nom de la station'})
+                    reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]),
+                                                                                                   geo_point).m)
+                    velo_lib = reponse[['properties.nom', 'Distance']]
+                    velo_lib.rename(columns={'properties.nom': 'Nom de la station'}, inplace=True)
 
             elif city == 'Lille':
                 dep = 59
@@ -703,7 +709,9 @@ elif requete:
                                          'geofilter.distance': f'{lat}, {lon}, 400'})
                 reponse = pd.json_normalize(r.json(), record_path='records')
                 if len(reponse) > 0:
-                    reponse.drop_duplicates(['fields.commercialstopname', 'fields.publiclinecode'], inplace=True, keep='last')
+                    reponse.drop_duplicates(['fields.commercialstopname', 'fields.publiclinecode'],
+                                            inplace=True,
+                                            keep='last')
                     transport = reponse[['fields.transportmoderef', 'fields.commercialstopname',
                                          'fields.publiclinecode', 'fields.dist']]
                     transport.rename(columns={'fields.commercialstopname': 'Nom de la station',
@@ -730,8 +738,9 @@ elif requete:
                 reponse = pd.json_normalize(r.json(), record_path='records')
                 if len(reponse) > 0:
                     reponse['Distance'] = reponse['fields.geo'].apply(lambda x: distance(x, geo_point).m)
-                    velo_lib = reponse[['fields.nom', 'fields.adresse', 'Distance']].rename(columns={'fields.nom': 'Nom de la station',
-                                                                                                     'fields.adresse': 'Adresse'})
+                    velo_lib = reponse[['fields.nom', 'fields.adresse', 'Distance']]
+                    velo_lib.rename(columns={'fields.nom': 'Nom de la station', 'fields.adresse': 'Adresse'},
+                                    inplace=True)
             # data BANCO
             index = 0
             banco['distance'] = 0
@@ -808,7 +817,7 @@ elif requete:
                     if temp_tab_com.index == 0:
                         indice_visibilite.loc["Proportion d'Indépendants"] = [(temp_tab_com.loc[0]*100).round(2), 0]
                     else:
-                        indice_visibilite.loc["Proporition Grandes Enseignes"] = [(temp_tab_com.loc[1] * 100).round(2), 0]
+                        indice_visibilite.loc["Proporition Grandes Enseignes"] = [(temp_tab_com.loc[1]*100).round(2), 0]
 
             # calculate rates
             final_viz = visibility_rating(indice_visibilite, dep)
@@ -822,7 +831,9 @@ elif requete:
                     indice_table.loc['Total'] = [' ', sum(indice_table.iloc[:, 1])]
                 else:
                     indice_table.loc['Total'] = [' ', 0]
-            final_note = int(final_viz.iloc[-1, 1] + final_access.iloc[-1, 1] + final_pop.iloc[-1, 1] + final_dist.iloc[-1, 1])
+            final_note = 0
+            for total_final in [final_viz, final_access, final_pop, final_dist]:
+                final_note += total_final.iloc[-1, 1]
 
             # print indices
             col1, col2 = st.beta_columns([2, 1])
@@ -908,105 +919,105 @@ elif requete:
     if cartographie:
         st.markdown('___')
         st.subheader('Situation du quartier')
-        st.write(' ')
+        st.subheader(' ')
 
-        with st.spinner('Construction de la carte'):
+        with st.spinner('Construction de la carte...'):
             folium_static(carte(banco, (lat, lon)), height=650)
 
     if coordonnees_proprio:
         st.markdown('___')
         st.subheader('Coordonnées du Propriétaire')
-        st.write(' ')
+        st.subheader(' ')
 
-        # if no owner found
-        any_soc = False
-        if search.shape[0] == 0 or search_in_flpm:
-            st.info(
-                """
-                Il n'y a pas de propriétaire identifié pour le de local commercial situé à cette adresse, 
-                ou l'adresse indiquée n'existe pas dans la base de donnée.
-                """)
-        # if siren is false
-        elif any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) \
-                or any(search['N° SIREN (Propriétaire(s) du local)'] == np.nan):
-            name = search['Dénomination (Propriétaire(s) du local)']
-            clean_name = clean_soc_name(name.iloc[0])
-            info = requests.get(pappers_reaserch, params={'api_token': pappers_key, 'q': clean_name})
-            societe = info.json()
-            if societe['total'] == 0:
-                st.error(
-                    f"""
-                    La société n'a pas pu être correctement identifiée. 
-                    Nous vous invitons à effectuer manuellement la recherche de la société **{name.iloc[0]}**.
+        with st.spinner('Recherche des coordonnées du propriétaire...'):
+            # if no owner found
+            any_soc = False
+            if search.shape[0] == 0 or search_in_flpm:
+                st.info(
+                    """
+                    Il n'y a pas de propriétaire identifié pour le de local commercial situé à cette adresse, 
+                    ou l'adresse indiquée n'existe pas dans la base de donnée.
                     """)
+            # if siren is false
+            elif (search.iloc[0, 10].startswith('U')) or (search.iloc[0, 10] == np.nan):
+                name = search['Dénomination (Propriétaire(s) du local)']
+                clean_name = clean_soc_name(name.iloc[0])
+                info = requests.get(pappers_reaserch, params={'api_token': pappers_key, 'q': clean_name})
+                societe = info.json()
+                if societe['total'] == 0:
+                    st.error(
+                        f"""
+                        La société n'a pas pu être correctement identifiée. 
+                        Nous vous invitons à effectuer manuellement la recherche de la société **{name.iloc[0]}**.
+                        """)
+                else:
+                    siren = societe['resultats'][0]['siren']
+                    any_soc = True
+
+            # if siren is good
             else:
-                siren = societe['resultats'][0]['siren']
+                siren = search['N° SIREN (Propriétaire(s) du local)'].drop_duplicates().iloc[0]
                 any_soc = True
 
-        # if siren is good
-        else:
-            siren = search['N° SIREN (Propriétaire(s) du local)'].drop_duplicates().iloc[0]
-            any_soc = True
+            # if siren found
+            if any_soc:
+                info = requests.get(pappers_enterprise, params={'api_token': pappers_key, 'siren': siren})
+                status = info.json()
 
-        # if siren found
-        if any_soc:
-            info = requests.get(pappers_enterprise, params={'api_token': pappers_key, 'siren': siren})
-            status = info.json()
+                try:
+                    # display the address
+                    siege = status['siege']
+                    nom_soc = status['denomination']
+                    col1, col2 = st.beta_columns(2)
+                    with col1:
+                        if siege['adresse_ligne_1'] is not None:
+                            ad1_soc = siege['adresse_ligne_1'].lower()
+                        else:
+                            ad1_soc = ' '
+                        if siege['adresse_ligne_2'] is not None:
+                            ad2_soc = siege['adresse_ligne_2'].lower()
+                        else:
+                            ad2_soc = ' '
+                        ad3_soc = f"{siege['code_postal']} - {siege['ville']} ({siege['pays']})"
 
-            try:
-                # display the address
-                siege = status['siege']
-                nom_soc = status['denomination']
-                col1, col2 = st.beta_columns(2)
-                with col1:
-                    if siege['adresse_ligne_1'] is not None:
-                        ad1_soc = siege['adresse_ligne_1'].lower()
-                    else:
-                        ad1_soc = ' '
-                    if siege['adresse_ligne_2'] is not None:
-                        ad2_soc = siege['adresse_ligne_2'].lower()
-                    else:
-                        ad2_soc = ' '
-                    ad3_soc = f"{siege['code_postal']} - {siege['ville']} ({siege['pays']})"
+                        st.warning(
+                            f"""
+                            **SIEGE** : \n
+                            {nom_soc}\n
+                            {ad1_soc.lower()} \n
+                            {ad2_soc.lower()} \n
+                            {ad3_soc}
+                            """)
+                    with col2:
+                        if len(status['representants']) == 1:
+                            st.info(print_associates(0, status))
 
-                    st.warning(
+                    st.title(' ')
+                    index = 0
+                    if len(status['representants']) > 1:
+                        for ligne in range((len(status['representants'])//2)):
+                            cols = st.beta_columns(2)
+                            for i, col in enumerate(cols):
+                                col.info(print_associates(index, status))
+                                index += 1
+                        if len(status['representants']) % 2 == 1:
+                            col1, col2 = st.beta_columns(2)
+                            with col1:
+                                st.info(print_associates(index, status))
+
+                except KeyError:
+                    st.error(
                         f"""
-                        **SIEGE** : \n
-                        {nom_soc}\n
-                        {ad1_soc.lower()} \n
-                        {ad2_soc.lower()} \n
-                        {ad3_soc}
+                        Une erreure s'est produite lors de la récupération des données.
+                        Nous vous invitons à effectuer manuellement la recherche de la société
+                        **{search['Dénomination (Propriétaire(s) du local)'].iloc[0]}**, 
+                        numéro de **SIREN {siren}**.
                         """)
-                with col2:
-                    if len(status['representants']) == 1:
-                        st.info(print_associates(0, status))
-
-                st.title(' ')
-                index = 0
-                if len(status['representants']) > 1:
-                    for ligne in range((len(status['representants'])//2)):
-                        cols = st.beta_columns(2)
-                        for i, col in enumerate(cols):
-                            col.info(print_associates(index, status))
-                            index += 1
-                    if len(status['representants']) % 2 == 1:
-                        col1, col2 = st.beta_columns(2)
-                        with col1:
-                            st.info(print_associates(index, status))
-
-            except KeyError:
-                st.error(
-                    f"""
-                    Une erreure s'est produite lors de la récupération des données.
-                    Nous vous invitons à effectuer manuellement la recherche de la société
-                    **{search['Dénomination (Propriétaire(s) du local)'].iloc[0]}**, 
-                    numéro de **SIREN {siren}**.
-                    """)
 
     if history:
         st.markdown('___')
         st.subheader("Historique des recherches")
-        st.title(' ')
+        st.subheader(' ')
 
         histo = pd.DataFrame(columns=['Total', 'Visibilité', 'Accessibilité', 'Population', 'Quartier'])
         for address, rate_list in st.session_state.items():
