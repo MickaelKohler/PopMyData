@@ -468,20 +468,20 @@ type_name = 'shoes|garden_center|department_store|cosmetics|leather|perfumery|be
 
 # DATA #
 
-FLPM_PRS = 'https://github.com/MickaelKohler/PopMyData/raw/version-alpha/Data/FLPM_PRS.csv'
-FLPM_BDX = 'https://github.com/MickaelKohler/PopMyData/raw/version-alpha/Data/FLPM_BDX.csv'
-FLPM_LIL = 'https://github.com/MickaelKohler/PopMyData/raw/version-alpha/Data/FLPM_LIL.csv'
+FLPM_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/FLPM_PRS.csv'
+FLPM_BDX = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/FLPM_BDX.csv'
+FLPM_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/FLPM_LIL.csv'
 
-BANCO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/banco_prs.csv'
-BANCO_BDX = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/banco_bdx.csv'
-BANCO_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/banco_lil.csv'
+BANCO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/banco_prs.csv'
+BANCO_BDX = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/banco_bdx.csv'
+BANCO_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/banco_lil.csv'
 
-METRO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/metro_paris.csv'
-FREQ_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/frequentation_metro_paris.csv'
-FREQ_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/metro_lil.csv'
+METRO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/metro_paris.csv'
+FREQ_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/frequentation_metro_paris.csv'
+FREQ_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/metro_lil.csv'
 PARK = 'https://static.data.gouv.fr/resources/base-nationale-des-lieux-de-stationnement/20210502-172910/bnls-2-.csv'
-INSEE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/insee.csv'
-BPE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/version-alpha/Data/bpe.csv'
+INSEE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/insee.csv'
+BPE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/bpe.csv'
 
 data_park = load_data(PARK, sep=';')
 bpe = load_data(BPE)
