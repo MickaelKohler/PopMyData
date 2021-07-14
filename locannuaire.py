@@ -27,7 +27,6 @@ st.markdown("""
         font-size:16px;
         font-weight:normal;
         margin:0px;
-        color:black;
     }
     .text {
         font-size:16px;
@@ -564,13 +563,15 @@ with col2:
                            help='La recherche va chercher le nom de rue le plus proche dans la base de données.')
 
 # choose option
-col1, col2, col3 = st.beta_columns(3)
+col1, col2, col3, col4 = st.beta_columns([4, 3, 3, 3])
 with col1:
     indice_attractivite = st.checkbox("Indice d'attractivité", value=True)
 with col2:
     cartographie = st.checkbox("Cartographie", value=True)
 with col3:
     coordonnees_proprio = st.checkbox("Coordonnées", value=True)
+with col4:
+    history = st.checkbox("Historique", value=False)
 
 # search correspondance between street and flpm data
 search_in_flpm = False
@@ -606,7 +607,9 @@ if search.shape[0] > 1:
 st.title(' ')
 requete = st.button('Rechercher')
 
-if requete:
+if requete and street == '':
+    st.warning("Vous n'avez pas renseigné d'adresse")
+elif requete:
 
     # geocoding (API)
     city = category['city']
@@ -623,294 +626,305 @@ if requete:
     code_iris = rep_iris.json()['complete_code']
 
     if indice_attractivite:
+        st.markdown('___')
+        with st.spinner("Calcul de l'indice d'attractivtié"):
+            # data locales
+            metro_tram, metro, tram, bus, velo_lib = None, None, None, None, None
+            if city == 'Paris':
+                dep = 75
 
-        # data locales
-        metro_tram, metro, tram, bus, velo_lib = None, None, None, None, None
-        if city == 'Paris':
-            dep = 75
+                # Metro/Tram (via csv pour gager en rapidité
+                transport = load_data(METRO_PRS)
+                freq_metro = load_data(FREQ_PRS)
+                transport['Distance'] = transport['coord_geo'].apply(lambda x: distance(eval(x), geo_point).m)
+                metro_prox = transport[transport['Distance'] < 400]
+                metro_prox['Arrêt'] = metro_prox['Arrêt'].apply(clean_metro_paris)
+                metro_tram = pd.merge(metro_prox, freq_metro, left_on='Arrêt', right_on='nom', how='left')
 
-            # Metro/Tram (via csv pour gager en rapidité
-            transport = load_data(METRO_PRS)
-            freq_metro = load_data(FREQ_PRS)
-            transport['Distance'] = transport['coord_geo'].apply(lambda x: distance(eval(x), geo_point).m)
-            metro_prox = transport[transport['Distance'] < 400]
-            metro_prox['Arrêt'] = metro_prox['Arrêt'].apply(clean_metro_paris)
-            metro_tram = pd.merge(metro_prox, freq_metro, left_on='Arrêt', right_on='nom', how='left')
+                # Bus
+                r = requests.get('https://data.ratp.fr/api/records/1.0/search/',
+                                 params={'dataset': 'accessibilite-des-arrets-de-bus-ratp',
+                                         'geofilter.distance': f'{lat}, {lon}, 400'})
+                reponse = pd.json_normalize(r.json(), record_path='records')
+                if len(reponse) > 0:
+                    reponse.drop_duplicates(['fields.nomptar'], inplace=True, keep='first')
+                    bus = reponse[['fields.nomptar', 'fields.dist']].rename(columns={'fields.name': 'Nom de la station',
+                                                                                     'fields.dist': 'Distance'})
 
-            # Bus
-            r = requests.get('https://data.ratp.fr/api/records/1.0/search/',
-                             params={'dataset': 'accessibilite-des-arrets-de-bus-ratp',
-                                     'geofilter.distance': f'{lat}, {lon}, 400'})
-            reponse = pd.json_normalize(r.json(), record_path='records')
-            if len(reponse) > 0:
-                reponse.drop_duplicates(['fields.nomptar'], inplace=True, keep='first')
-                bus = reponse[['fields.nomptar', 'fields.dist']].rename(columns={'fields.name': 'Nom de la station',
-                                                                                 'fields.dist': 'Distance'})
+                # velo libre service
+                r = requests.get('https://opendata.paris.fr/api/records/1.0/search/',
+                                 params={'dataset': 'velib-disponibilite-en-temps-reel',
+                                         'geofilter.distance': f'{lat}, {lon}, 400'})
+                reponse = pd.json_normalize(r.json(), record_path='records')
+                if len(reponse) > 0:
+                    reponse['Distance'] = reponse['fields.coordonnees_geo'].apply(lambda x: distance(x, geo_point).m)
+                    velo_lib = reponse[['fields.name', 'Distance']].rename(columns={'fields.name': 'Nom de la station'})
 
-            # velo libre service
-            r = requests.get('https://opendata.paris.fr/api/records/1.0/search/',
-                             params={'dataset': 'velib-disponibilite-en-temps-reel',
-                                     'geofilter.distance': f'{lat}, {lon}, 400'})
-            reponse = pd.json_normalize(r.json(), record_path='records')
-            if len(reponse) > 0:
-                reponse['Distance'] = reponse['fields.coordonnees_geo'].apply(lambda x: distance(x, geo_point).m)
-                velo_lib = reponse[['fields.name', 'Distance']].rename(columns={'fields.name': 'Nom de la station'})
+            elif city == 'Bordeaux':
+                dep = 33
 
-        elif city == 'Bordeaux':
-            dep = 33
+                # Bus/Tram
+                trans_link = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW&typename=sv_arret_p&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
+                r = requests.get(trans_link)
+                reponse = pd.json_normalize(r.json(), record_path='features')
+                if len(reponse) > 0:
+                    reponse.drop_duplicates(['properties.libelle', 'properties.vehicule'], inplace=True, keep='last')
+                    reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]), geo_point).m)
+                    transport = reponse[['properties.libelle', 'properties.vehicule', 'Distance']].rename(columns={'properties.libelle': 'Nom de la station',
+                                                                                                                   'properties.vehicule': 'Type'})
+                    bus = transport[transport['Type'] == 'BUS']
+                    metro_tram = transport[transport['Type'] == 'TRAM']
 
-            # Bus/Tram
-            trans_link = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW&typename=sv_arret_p&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
-            r = requests.get(trans_link)
-            reponse = pd.json_normalize(r.json(), record_path='features')
-            if len(reponse) > 0:
-                reponse.drop_duplicates(['properties.libelle', 'properties.vehicule'], inplace=True, keep='last')
-                reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]), geo_point).m)
-                transport = reponse[['properties.libelle', 'properties.vehicule', 'Distance']].rename(columns={'properties.libelle': 'Nom de la station',
-                                                                                                               'properties.vehicule': 'Type'})
-                bus = transport[transport['Type'] == 'BUS']
-                metro_tram = transport[transport['Type'] == 'TRAM']
+                # velo libre service
+                velo_link = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW&typename=ci_vcub_p&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
+                r = requests.get(velo_link)
+                reponse = pd.json_normalize(r.json(), record_path='features')
+                if len(reponse) > 0:
+                    reponse.drop_duplicates(['properties.nom'], inplace=True, keep='last')
+                    reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]), geo_point).m)
+                    velo_lib = reponse[['properties.nom', 'Distance']].rename(columns={'properties.nom': 'Nom de la station'})
 
-            # velo libre service
-            velo_link = 'https://data.bordeaux-metropole.fr/geojson?key=1566LLMUWW&typename=ci_vcub_p&filter={"geom":{"$geoWithin":{"$center":' + f"{[lon, lat]}" + ',"$radius":400}}}'
-            r = requests.get(velo_link)
-            reponse = pd.json_normalize(r.json(), record_path='features')
-            if len(reponse) > 0:
-                reponse.drop_duplicates(['properties.nom'], inplace=True, keep='last')
-                reponse['Distance'] = reponse['geometry.coordinates'].apply(lambda x: distance((x[1], x[0]), geo_point).m)
-                velo_lib = reponse[['properties.nom', 'Distance']].rename(columns={'properties.nom': 'Nom de la station'})
+            elif city == 'Lille':
+                dep = 59
 
-        elif city == 'Lille':
-            dep = 59
+                # Metro
+                r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
+                                 params={'dataset': 'stations-metro',
+                                         'geofilter.distance': f'{lat}, {lon}, 400'})
+                reponse = pd.json_normalize(r.json(), record_path='records')
+                if len(reponse) > 0:
+                    metro = reponse[['fields.nom_statio', 'fields.dist', 'fields.ligne']]
+                    metro.rename(columns={'fields.nom_statio': 'Nom de la station',
+                                          'fields.dist': 'Distance', 'fields.ligne': 'Ligne'}, inplace=True)
 
-            # Metro
-            r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
-                             params={'dataset': 'stations-metro',
-                                     'geofilter.distance': f'{lat}, {lon}, 400'})
-            reponse = pd.json_normalize(r.json(), record_path='records')
-            if len(reponse) > 0:
-                metro = reponse[['fields.nom_statio', 'fields.dist', 'fields.ligne']]
-                metro.rename(columns={'fields.nom_statio': 'Nom de la station',
-                                      'fields.dist': 'Distance', 'fields.ligne': 'Ligne'}, inplace=True)
+                # Bus/Tram
+                r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
+                                 params={'dataset': 'ilevia-physicalstop',
+                                         'geofilter.distance': f'{lat}, {lon}, 400'})
+                reponse = pd.json_normalize(r.json(), record_path='records')
+                if len(reponse) > 0:
+                    reponse.drop_duplicates(['fields.commercialstopname', 'fields.publiclinecode'], inplace=True, keep='last')
+                    transport = reponse[['fields.transportmoderef', 'fields.commercialstopname',
+                                         'fields.publiclinecode', 'fields.dist']]
+                    transport.rename(columns={'fields.commercialstopname': 'Nom de la station',
+                                              'fields.dist': 'Distance',
+                                              'fields.transportmoderef': 'Type',
+                                              'fields.publiclinecode': 'Ligne'}, inplace=True)
+                    bus = transport[transport['Type'] == 'B']
+                    tram = transport[transport['Type'] == 'T']
 
-            # Bus/Tram
-            r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
-                             params={'dataset': 'ilevia-physicalstop',
-                                     'geofilter.distance': f'{lat}, {lon}, 400'})
-            reponse = pd.json_normalize(r.json(), record_path='records')
-            if len(reponse) > 0:
-                reponse.drop_duplicates(['fields.commercialstopname', 'fields.publiclinecode'], inplace=True, keep='last')
-                transport = reponse[['fields.transportmoderef', 'fields.commercialstopname',
-                                     'fields.publiclinecode', 'fields.dist']]
-                transport.rename(columns={'fields.commercialstopname': 'Nom de la station',
-                                          'fields.dist': 'Distance',
-                                          'fields.transportmoderef': 'Type',
-                                          'fields.publiclinecode': 'Ligne'}, inplace=True)
-                bus = transport[transport['Type'] == 'B']
-                tram = transport[transport['Type'] == 'T']
+                # frequentation
+                if metro is not None and tram is not None:
+                    metro_tram = pd.concat([metro, tram])
+                elif metro is not None:
+                    metro_tram = metro
+                else:
+                    metro_tram = tram
+                freq_metro = load_data(FREQ_LIL)
+                metro_tram = pd.merge(metro_tram, freq_metro, left_on='Nom de la station', right_on='nom', how='left')
 
-            # frequentation
-            if metro is not None and tram is not None:
-                metro_tram = pd.concat([metro, tram])
-            elif metro is not None:
-                metro_tram = metro
-            else:
-                metro_tram = tram
-            freq_metro = load_data(FREQ_LIL)
-            metro_tram = pd.merge(metro_tram, freq_metro, left_on='Nom de la station', right_on='nom', how='left')
+                # velo libre service
+                r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
+                                 params={'dataset': 'vlille-realtime',
+                                         'geofilter.distance': f'{lat}, {lon}, 400'})
+                reponse = pd.json_normalize(r.json(), record_path='records')
+                if len(reponse) > 0:
+                    reponse['Distance'] = reponse['fields.geo'].apply(lambda x: distance(x, geo_point).m)
+                    velo_lib = reponse[['fields.nom', 'fields.adresse', 'Distance']].rename(columns={'fields.nom': 'Nom de la station',
+                                                                                                     'fields.adresse': 'Adresse'})
+            # data BANCO
+            index = 0
+            banco['distance'] = 0
+            # ATTENTION : revoir le filtre par types
+            for geo_shop in zip(banco.iloc[:, 1], banco.iloc[:, 0]):
+                banco['distance'][index] = distance(geo_shop, geo_point).m
+                index += 1
+            local_banco = banco[banco['distance'] < 200]
 
-            # velo libre service
-            r = requests.get('https://opendata.lillemetropole.fr/api/records/1.0/search/',
-                             params={'dataset': 'vlille-realtime',
-                                     'geofilter.distance': f'{lat}, {lon}, 400'})
-            reponse = pd.json_normalize(r.json(), record_path='records')
-            if len(reponse) > 0:
-                reponse['Distance'] = reponse['fields.geo'].apply(lambda x: distance(x, geo_point).m)
-                velo_lib = reponse[['fields.nom', 'fields.adresse', 'Distance']].rename(columns={'fields.nom': 'Nom de la station',
-                                                                                                 'fields.adresse': 'Adresse'})
-        # data BANCO
-        index = 0
-        banco['distance'] = 0
-        # ATTENTION : revoir le filtre par types
-        for geo_shop in zip(banco.iloc[:, 1], banco.iloc[:, 0]):
-            banco['distance'][index] = distance(geo_shop, geo_point).m
-            index += 1
-        local_banco = banco[banco['distance'] < 200]
+            # data nationale : parking
+            index = 0
+            parking = city_park(dep, data_park)
+            parking['Distance'] = 0
+            for geo_park in zip(parking.iloc[:, 1], parking.iloc[:, 0]):
+                parking['Distance'].iloc[index] = distance(geo_park, geo_point).m
+                index += 1
+            nb_parking = len(parking[parking['Distance'] < 400])
 
-        # data nationale : parking
-        index = 0
-        parking = city_park(dep, data_park)
-        parking['Distance'] = 0
-        for geo_park in zip(parking.iloc[:, 1], parking.iloc[:, 0]):
-            parking['Distance'].iloc[index] = distance(geo_park, geo_point).m
-            index += 1
-        nb_parking = len(parking[parking['Distance'] < 400])
+            # data nationale : BPE
+            bpe = bpe[bpe['DEP'] == dep]
+            bpe['Distance'] = bpe['coord_geo'].apply(lambda x: distance(eval(x), geo_point).m)
+            zone_bpe = bpe[bpe['Distance'] < 400].sort_values('Distance').value_counts('Equipement')
 
-        # data nationale : BPE
-        bpe = bpe[bpe['DEP'] == dep]
-        bpe['Distance'] = bpe['coord_geo'].apply(lambda x: distance(eval(x), geo_point).m)
-        zone_bpe = bpe[bpe['Distance'] < 400].sort_values('Distance').value_counts('Equipement')
+            # data nationale : INSEE
+            insee = load_data(INSEE).set_index('IRIS').loc[int(code_iris)]
 
-        # data nationale : INSEE
-        insee = load_data(INSEE).set_index('IRIS').loc[int(code_iris)]
-
-        # empty indices
-        indice_access = pd.DataFrame(np.zeros((5, 2), int),
-                                     index=['Gare', 'Metro/Tram', 'Bus', 'Velo_ls', 'Parking'],
-                                     columns=['Total', 'Note'])
-        indice_quartier = pd.DataFrame(np.zeros((9, 2), int),
-                                       index=['Bureau de poste', 'École maternelle', 'Enseignement Secondaire',
-                                              'Enseignement supérieur', 'Zone Sports', 'Cinéma', 'Espace Culturel',
-                                              'Bibliothèque', 'Hôtel'],
-                                       columns=['Total', 'Note'])
-        indice_pop = pd.DataFrame(np.zeros((2, 2), dtype=int),
-                                  index=['Population Active', 'Revenu médian'],
-                                  columns=['Total', 'Note'])
-        indice_visibilite = pd.DataFrame(np.zeros((5, 2), int),
-                                         index=['Tissu commercial', 'Proporiton Restaurants/Bars',
-                                                'Centres Commerciaux', 'Proporition Grandes Enseignes',
-                                                "Proportion d'Indépendants"],
+            # empty indices
+            indice_access = pd.DataFrame(np.zeros((5, 2), int),
+                                         index=['Gare', 'Metro/Tram', 'Bus', 'Velo_ls', 'Parking'],
                                          columns=['Total', 'Note'])
+            indice_quartier = pd.DataFrame(np.zeros((9, 2), int),
+                                           index=['Bureau de poste', 'École maternelle', 'Enseignement Secondaire',
+                                                  'Enseignement supérieur', 'Zone Sports', 'Cinéma', 'Espace Culturel',
+                                                  'Bibliothèque', 'Hôtel'],
+                                           columns=['Total', 'Note'])
+            indice_pop = pd.DataFrame(np.zeros((2, 2), dtype=int),
+                                      index=['Population Active', 'Revenu médian'],
+                                      columns=['Total', 'Note'])
+            indice_visibilite = pd.DataFrame(np.zeros((5, 2), int),
+                                             index=['Tissu commercial', 'Proporiton Restaurants/Bars',
+                                                    'Centres Commerciaux', 'Proporition Grandes Enseignes',
+                                                    "Proportion d'Indépendants"],
+                                             columns=['Total', 'Note'])
 
-        if dep == 75:
-            indice_visibilite.loc['Affluance des transports'] = [int(metro_tram.loc[:, 'validations'].sum()), 0]
-        elif dep == 59:
-            indice_visibilite.loc['Affluance des transports'] = [int(metro_tram.loc[:, 'validations'].sum()), 0]
+            if dep == 75:
+                indice_visibilite.loc['Affluance des transports'] = [int(metro_tram.loc[:, 'validations'].sum()), 0]
+            elif dep == 59:
+                indice_visibilite.loc['Affluance des transports'] = [int(metro_tram.loc[:, 'validations'].sum()), 0]
 
-        for el, val in zip(zone_bpe.index, zone_bpe):
-            if el in indice_quartier.index:
-                indice_quartier.loc[el, 'Total'] = val
-            elif el in indice_access.index:
-                indice_access.loc[el, 'Total'] = val
-        if metro_tram is not None:
-            indice_access.loc['Metro/Tram', 'Total'] = len(metro_tram)
-        if bus is not None:
-            indice_access.loc['Bus', 'Total'] = len(bus)
-        if velo_lib is not None:
-            indice_access.loc['Velo_ls', 'Total'] = len(velo_lib)
-        indice_access.loc['Parking', 'Total'] = nb_parking
-        indice_pop.loc['Population Active', 'Total'] = insee['Population Active']
-        indice_pop.loc['Revenu médian', 'Total'] = insee['Revenus Medians']
-        indice_visibilite.loc['Tissu commercial', 'Total'] = len(local_banco)
-        indice_visibilite.loc['Centres Commerciaux'] = [len(local_banco[local_banco['type'] == 'supermarket']), 0]
-        if len(local_banco) > 0:
-            temp_tab_bar = len(local_banco[local_banco['type'].isin(['bar', 'restaurant'])]) / len(local_banco)
-            indice_visibilite.loc['Proporiton Restaurants/Bars'] = [round(temp_tab_bar*100, 2), 0]
-            temp_tab_com = local_banco['cat_mag'].value_counts(normalize=True)
-            if len(temp_tab_com) == 2:
-                indice_visibilite.loc['Proporition Grandes Enseignes'] = [(temp_tab_com.loc[1]*100).round(2), 0]
-                indice_visibilite.loc["Proportion d'Indépendants"] = [(temp_tab_com.loc[0]*100).round(2), 0]
-            else:
-                if temp_tab_com.index == 0:
+            for el, val in zip(zone_bpe.index, zone_bpe):
+                if el in indice_quartier.index:
+                    indice_quartier.loc[el, 'Total'] = val
+                elif el in indice_access.index:
+                    indice_access.loc[el, 'Total'] = val
+            if metro_tram is not None:
+                indice_access.loc['Metro/Tram', 'Total'] = len(metro_tram)
+            if bus is not None:
+                indice_access.loc['Bus', 'Total'] = len(bus)
+            if velo_lib is not None:
+                indice_access.loc['Velo_ls', 'Total'] = len(velo_lib)
+            indice_access.loc['Parking', 'Total'] = nb_parking
+            indice_pop.loc['Population Active', 'Total'] = insee['Population Active']
+            indice_pop.loc['Revenu médian', 'Total'] = insee['Revenus Medians']
+            indice_visibilite.loc['Tissu commercial', 'Total'] = len(local_banco)
+            indice_visibilite.loc['Centres Commerciaux'] = [len(local_banco[local_banco['type'] == 'supermarket']), 0]
+            if len(local_banco) > 0:
+                temp_tab_bar = len(local_banco[local_banco['type'].isin(['bar', 'restaurant'])]) / len(local_banco)
+                indice_visibilite.loc['Proporiton Restaurants/Bars'] = [round(temp_tab_bar*100, 2), 0]
+                temp_tab_com = local_banco['cat_mag'].value_counts(normalize=True)
+                if len(temp_tab_com) == 2:
+                    indice_visibilite.loc['Proporition Grandes Enseignes'] = [(temp_tab_com.loc[1]*100).round(2), 0]
                     indice_visibilite.loc["Proportion d'Indépendants"] = [(temp_tab_com.loc[0]*100).round(2), 0]
                 else:
-                    indice_visibilite.loc["Proporition Grandes Enseignes"] = [(temp_tab_com.loc[1] * 100).round(2), 0]
+                    if temp_tab_com.index == 0:
+                        indice_visibilite.loc["Proportion d'Indépendants"] = [(temp_tab_com.loc[0]*100).round(2), 0]
+                    else:
+                        indice_visibilite.loc["Proporition Grandes Enseignes"] = [(temp_tab_com.loc[1] * 100).round(2), 0]
 
-        # calculate rates
-        final_viz = visibility_rating(indice_visibilite, dep)
-        final_access = access_rating(indice_access)
-        final_pop = population_rating(indice_pop)
-        final_dist = district_rating(indice_quartier)
+            # calculate rates
+            final_viz = visibility_rating(indice_visibilite, dep)
+            final_access = access_rating(indice_access)
+            final_pop = population_rating(indice_pop)
+            final_dist = district_rating(indice_quartier)
 
-        # calculate final rate
-        for indice_table in [final_viz, final_access, final_pop, final_dist]:
-            if sum(indice_table.iloc[:, 1]) >= 0:
-                indice_table.loc['Total'] = [' ', sum(indice_table.iloc[:, 1])]
-            else:
-                indice_table.loc['Total'] = [' ', 0]
-        final_note = int(final_viz.iloc[-1, 1] + final_access.iloc[-1, 1] + final_pop.iloc[-1, 1] + final_dist.iloc[-1, 1])
+            # calculate final rate
+            for indice_table in [final_viz, final_access, final_pop, final_dist]:
+                if sum(indice_table.iloc[:, 1]) >= 0:
+                    indice_table.loc['Total'] = [' ', sum(indice_table.iloc[:, 1])]
+                else:
+                    indice_table.loc['Total'] = [' ', 0]
+            final_note = int(final_viz.iloc[-1, 1] + final_access.iloc[-1, 1] + final_pop.iloc[-1, 1] + final_dist.iloc[-1, 1])
 
-        # print indices
-        st.markdown('___')
-        col1, col2 = st.beta_columns([2, 1])
-        with col1:
+            # print indices
+            col1, col2 = st.beta_columns([2, 1])
+            with col1:
+                st.title(' ')
+                st.subheader("Indice d'attractivtié de l'emplacement")
+                st.write(geo['features'][0]['properties']['label'])
+            with col2:
+                color = 'green' if final_note > 70 else 'tomato'
+                st.markdown(
+                    f'''
+                    <p class="indice_total", style="color:{color}">{final_note}
+                        <span class="text">/ 100</span> </p>
+                    ''', unsafe_allow_html=True)
             st.title(' ')
-            st.subheader("Indice d'attractivtié de l'emplacement")
-            st.write(geo['features'][0]['properties']['label'])
-        with col2:
-            color = 'green' if final_note > 70 else 'tomato'
-            st.markdown(
-                f'''
-                <p class="indice_total", style="color:{color}">{final_note}
-                    <span class="text">/ 100</span> </p>
-                ''', unsafe_allow_html=True)
-        st.title(' ')
-        col1, col2, col3, col4 = st.beta_columns(4)
-        with col1:
-            color = 'green' if final_viz.iloc[-1, 1] > 15 else 'tomato'
-            st.markdown(
-                f'''
-                <p class="titre">Indice de visibilité</p>
-                <p class="sous_indice", style="color:{color}">{int(final_viz.iloc[-1, 1])} 
-                    <span class="text">/ 30</span> </p>
-                ''', unsafe_allow_html=True)
-        with col2:
-            color = 'green' if final_access.iloc[-1, 1] > 15 else 'tomato'
-            st.markdown(
-                f'''
-                <p class="titre">Indice d'accessiblité</p>
-                <p class="sous_indice", style="color:{color}">{int(final_access.iloc[-1, 1])}
-                    <span class="text">/ 30</span></p>
-                ''', unsafe_allow_html=True)
-        with col3:
-            color = 'green' if final_pop.iloc[-1, 1] > 10 else 'tomato'
-            st.markdown(
-                f'''
-                <p class="titre">Indice de Population</p>
-                <p class="sous_indice", style="color:{color}">{int(final_pop.iloc[-1, 1])}
-                    <span class="text">/ 20</span></p>
-                ''', unsafe_allow_html=True)
-        with col4:
-            color = 'green' if final_dist.iloc[-1, 1] > 10 else 'tomato'
-            st.markdown(
-                f'''
-                <p class="titre">Indice du Quartier</p>
-                <p class="sous_indice", style="color:{color}">{int(final_dist.iloc[-1, 1])}
-                    <span class="text">/ 20</span></p>
-                ''', unsafe_allow_html=True)
+            col1, col2, col3, col4 = st.beta_columns(4)
+            with col1:
+                color = 'green' if final_viz.iloc[-1, 1] > 15 else 'tomato'
+                st.markdown(
+                    f'''
+                    <p class="titre">Indice de visibilité</p>
+                    <p class="sous_indice", style="color:{color}">{int(final_viz.iloc[-1, 1])} 
+                        <span class="text">/ 30</span> </p>
+                    ''', unsafe_allow_html=True)
+            with col2:
+                color = 'green' if final_access.iloc[-1, 1] > 15 else 'tomato'
+                st.markdown(
+                    f'''
+                    <p class="titre">Indice d'accessiblité</p>
+                    <p class="sous_indice", style="color:{color}">{int(final_access.iloc[-1, 1])}
+                        <span class="text">/ 30</span></p>
+                    ''', unsafe_allow_html=True)
+            with col3:
+                color = 'green' if final_pop.iloc[-1, 1] > 10 else 'tomato'
+                st.markdown(
+                    f'''
+                    <p class="titre">Indice de Population</p>
+                    <p class="sous_indice", style="color:{color}">{int(final_pop.iloc[-1, 1])}
+                        <span class="text">/ 20</span></p>
+                    ''', unsafe_allow_html=True)
+            with col4:
+                color = 'green' if final_dist.iloc[-1, 1] > 10 else 'tomato'
+                st.markdown(
+                    f'''
+                    <p class="titre">Indice du Quartier</p>
+                    <p class="sous_indice", style="color:{color}">{int(final_dist.iloc[-1, 1])}
+                        <span class="text">/ 20</span></p>
+                    ''', unsafe_allow_html=True)
 
-        # expander
-        st.title(' ')
-        option = st.beta_expander("Afficher le détail des indices")
-        option.write(' ')
-        col1, col2, col3 = option.beta_columns(3)
-        with col1:
-            st.markdown(f'Longitude : {lon}')
-        with col2:
-            st.markdown(f'Latitude : {lat}')
-        with col3:
-            st.markdown(f'Code Iris : {code_iris}')
-        col1, col2 = option.beta_columns([3, 2])
-        with col1:
-            st.markdown("**Indice de Visiblité**")
-            st.dataframe(final_viz)
-        with col2:
-            st.markdown("**Indice d'Accessiblité**")
-            st.dataframe(final_access)
-        col1, col2 = option.beta_columns([8, 9])
-        with col1:
-            st.markdown("**Indice de Population**")
-            st.dataframe(final_pop)
-        with col2:
-            st.markdown("**Indice du Quartier**")
-            st.dataframe(final_dist)
+            # expander
+            st.title(' ')
+            option = st.beta_expander("Afficher le détail des indices")
+            option.write(' ')
+            col1, col2, col3 = option.beta_columns(3)
+            with col1:
+                st.markdown(f'Longitude : {lon}')
+            with col2:
+                st.markdown(f'Latitude : {lat}')
+            with col3:
+                st.markdown(f'Code Iris : {code_iris}')
+            col1, col2 = option.beta_columns([3, 2])
+            with col1:
+                st.markdown("**Indice de Visiblité**")
+                st.dataframe(final_viz)
+            with col2:
+                st.markdown("**Indice d'Accessiblité**")
+                st.dataframe(final_access)
+            col1, col2 = option.beta_columns([8, 9])
+            with col1:
+                st.markdown("**Indice de Population**")
+                st.dataframe(final_pop)
+            with col2:
+                st.markdown("**Indice du Quartier**")
+                st.dataframe(final_dist)
+
+            # add to history
+            histo_adresse = f'{numb} {street}'
+            if histo_adresse not in st.session_state:
+                st.session_state[histo_adresse] = [final_note,
+                                                   int(final_viz.iloc[-1, 1]), int(final_access.iloc[-1, 1]),
+                                                   int(final_pop.iloc[-1, 1]), int(final_dist.iloc[-1, 1])]
 
     if cartographie:
         st.markdown('___')
         st.subheader('Situation du quartier')
+        st.write(' ')
 
-        folium_static(carte(banco, (lat, lon)), height=650)
+        with st.spinner('Construction de la carte'):
+            folium_static(carte(banco, (lat, lon)), height=650)
 
     if coordonnees_proprio:
         st.markdown('___')
-        st.subheader('Coordonnées du Propriétaires')
+        st.subheader('Coordonnées du Propriétaire')
+        st.write(' ')
+
         # if no owner found
         any_soc = False
         if search.shape[0] == 0 or search_in_flpm:
-            st.markdown(
+            st.info(
                 """
                 Il n'y a pas de propriétaire identifié pour le de local commercial situé à cette adresse, 
-                ou l'adresse indiquée n'existe pas.
+                ou l'adresse indiquée n'existe pas dans la base de donnée.
                 """)
         # if siren is false
         elif any(search['N° SIREN (Propriétaire(s) du local)'].str.contains('U')) \
@@ -920,7 +934,7 @@ if requete:
             info = requests.get(pappers_reaserch, params={'api_token': pappers_key, 'q': clean_name})
             societe = info.json()
             if societe['total'] == 0:
-                st.markdown(
+                st.error(
                     f"""
                     La société n'a pas pu être correctement identifiée. 
                     Nous vous invitons à effectuer manuellement la recherche de la société **{name.iloc[0]}**.
@@ -955,7 +969,7 @@ if requete:
                         ad2_soc = ' '
                     ad3_soc = f"{siege['code_postal']} - {siege['ville']} ({siege['pays']})"
 
-                    st.markdown(
+                    st.warning(
                         f"""
                         **SIEGE** : \n
                         {nom_soc}\n
@@ -965,7 +979,7 @@ if requete:
                         """)
                 with col2:
                     if len(status['representants']) == 1:
-                        st.markdown(print_associates(0, status))
+                        st.info(print_associates(0, status))
 
                 st.title(' ')
                 index = 0
@@ -973,19 +987,28 @@ if requete:
                     for ligne in range((len(status['representants'])//2)):
                         cols = st.beta_columns(2)
                         for i, col in enumerate(cols):
-                            col.markdown(print_associates(index, status))
+                            col.info(print_associates(index, status))
                             index += 1
-                        st.title(' ')
                     if len(status['representants']) % 2 == 1:
                         col1, col2 = st.beta_columns(2)
                         with col1:
-                            st.markdown(print_associates(index, status))
+                            st.info(print_associates(index, status))
 
             except KeyError:
-                st.markdown(
+                st.error(
                     f"""
                     Une erreure s'est produite lors de la récupération des données.
                     Nous vous invitons à effectuer manuellement la recherche de la société
                     **{search['Dénomination (Propriétaire(s) du local)'].iloc[0]}**, 
                     numéro de **SIREN {siren}**.
                     """)
+
+    if history:
+        st.markdown('___')
+        st.subheader("Historique des recherches")
+        st.title(' ')
+
+        histo = pd.DataFrame(columns=['Total', 'Visibilité', 'Accessibilité', 'Population', 'Quartier'])
+        for address, rate_list in st.session_state.items():
+            histo.loc[address] = rate_list
+        st.table(histo)
