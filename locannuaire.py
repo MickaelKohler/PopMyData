@@ -7,12 +7,11 @@ import pandas as pd
 import streamlit as st
 from streamlit_folium import folium_static
 from geopy.distance import distance
-import fontawesome as fa
 
 # CONFIG #
 
 st.set_page_config(page_title="Locannuaire",
-                   page_icon="⌂",
+                   page_icon="🏠",
                    initial_sidebar_state="collapsed",
                    )
 
@@ -227,11 +226,11 @@ def access_rating(table):
     :param table: table created when an address is specified by user
     :return: same table with rates
     """
-    table.iloc[0, 1] = 4 if table.iloc[0, 0] > 1 else 0                     # Gare
-    table.iloc[1, 1] = 7 if table.iloc[1, 0] > 3 else table.iloc[1, 0] * 2  # Metro Tram
-    table.iloc[2, 1] = 7 if table.iloc[2, 0] > 3 else table.iloc[2, 0] * 2  # Bus
-    table.iloc[3, 1] = 6 if table.iloc[3, 0] > 3 else table.iloc[3, 0] * 2  # Velo libre Service
-    table.iloc[4, 1] = 6 if table.iloc[4, 0] > 3 else table.iloc[4, 0] * 2  # Parkings
+    table.iloc[0, 1] = 4 if table.iloc[0, 0] >= 1 else 0                     # Gare
+    table.iloc[1, 1] = 7 if table.iloc[1, 0] >= 3 else table.iloc[1, 0] * 2  # Metro Tram
+    table.iloc[2, 1] = 7 if table.iloc[2, 0] >= 3 else table.iloc[2, 0] * 2  # Bus
+    table.iloc[3, 1] = 6 if table.iloc[3, 0] >= 3 else table.iloc[3, 0] * 2  # Velo libre Service
+    table.iloc[4, 1] = 6 if table.iloc[4, 0] >= 3 else table.iloc[4, 0] * 2  # Parkings
     return table
 
 
@@ -780,8 +779,8 @@ elif requete:
                                       index=['Population Active', 'Revenu médian'],
                                       columns=['Total', 'Note'])
             indice_visibilite = pd.DataFrame(np.zeros((5, 2), int),
-                                             index=['Tissu commercial', 'Proporiton Restaurants/Bars',
-                                                    'Centres Commerciaux', 'Proporition Grandes Enseignes',
+                                             index=['Tissu commercial', 'Proportion Restaurants/Bars',
+                                                    'Centres Commerciaux', 'Proportion Grandes Enseignes',
                                                     "Proportion d'Indépendants"],
                                              columns=['Total', 'Note'])
 
@@ -808,16 +807,16 @@ elif requete:
             indice_visibilite.loc['Centres Commerciaux'] = [len(local_banco[local_banco['type'] == 'supermarket']), 0]
             if len(local_banco) > 0:
                 temp_tab_bar = len(local_banco[local_banco['type'].isin(['bar', 'restaurant'])]) / len(local_banco)
-                indice_visibilite.loc['Proporiton Restaurants/Bars'] = [round(temp_tab_bar*100, 2), 0]
+                indice_visibilite.loc['Proportion Restaurants/Bars'] = [round(temp_tab_bar*100, 2), 0]
                 temp_tab_com = local_banco['cat_mag'].value_counts(normalize=True)
                 if len(temp_tab_com) == 2:
-                    indice_visibilite.loc['Proporition Grandes Enseignes'] = [(temp_tab_com.loc[1]*100).round(2), 0]
+                    indice_visibilite.loc['Proportion Grandes Enseignes'] = [(temp_tab_com.loc[1]*100).round(2), 0]
                     indice_visibilite.loc["Proportion d'Indépendants"] = [(temp_tab_com.loc[0]*100).round(2), 0]
                 else:
                     if temp_tab_com.index == 0:
                         indice_visibilite.loc["Proportion d'Indépendants"] = [(temp_tab_com.loc[0]*100).round(2), 0]
                     else:
-                        indice_visibilite.loc["Proporition Grandes Enseignes"] = [(temp_tab_com.loc[1]*100).round(2), 0]
+                        indice_visibilite.loc["Proportion Grandes Enseignes"] = [(temp_tab_com.loc[1]*100).round(2), 0]
 
             # calculate rates
             final_viz = visibility_rating(indice_visibilite, dep)
@@ -839,7 +838,7 @@ elif requete:
             col1, col2 = st.beta_columns([2, 1])
             with col1:
                 st.title(' ')
-                st.subheader("Indice d'attractivtié de l'emplacement")
+                st.subheader("Indice d'attractivité de l'emplacement")
                 st.write(geo['features'][0]['properties']['label'])
             with col2:
                 color = 'green' if final_note > 70 else 'tomato'
