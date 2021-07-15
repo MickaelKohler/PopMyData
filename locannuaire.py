@@ -421,6 +421,29 @@ def carte(df, coord):
     return m
 
 
+def rate_color(rate, max):
+    """
+    Color the rate according to its height. Green is better.
+    :param rate: a rate
+    :return: a color
+    """
+    if max == 100:
+        max, mid, min = 75, 60, 50
+    elif max == 30:
+        max, mid, min = 20, 15, 10
+    else:
+        max, mid, min = 15, 10, 5
+
+    if rate >= max:
+        return 'limegreen'
+    elif rate >= mid:
+        return 'gold'
+    elif rate >= min:
+        return 'orange'
+    else:
+        return 'tomato'
+
+
 def print_associates(indice, db):
     """Print associates names"""
     gerant = db['representants'][indice]
@@ -779,15 +802,15 @@ elif requete:
                                       index=['Population Active', 'Revenu médian'],
                                       columns=['Total', 'Note'])
             indice_visibilite = pd.DataFrame(np.zeros((5, 2), int),
-                                             index=['Tissu commercial', 'Proportion Restaurants/Bars',
-                                                    'Centres Commerciaux', 'Proportion Grandes Enseignes',
+                                             index=['Tissu commercial', 'Centres Commerciaux',
+                                                    'Proportion Restaurants/Bars', 'Proportion Grandes Enseignes',
                                                     "Proportion d'Indépendants"],
                                              columns=['Total', 'Note'])
 
             if dep == 75:
-                indice_visibilite.loc['Affluance des transports'] = [int(metro_tram.loc[:, 'validations'].sum()), 0]
+                indice_visibilite.loc['Nombre voyageurs Metro/Tram'] = [int(metro_tram.loc[:, 'validations'].sum()), 0]
             elif dep == 59:
-                indice_visibilite.loc['Affluance des transports'] = [int(metro_tram.loc[:, 'validations'].sum()), 0]
+                indice_visibilite.loc['Nombre voyageurs Metro/Tram'] = [int(metro_tram.loc[:, 'validations'].sum()), 0]
 
             for el, val in zip(zone_bpe.index, zone_bpe):
                 if el in indice_quartier.index:
@@ -804,7 +827,8 @@ elif requete:
             indice_pop.loc['Population Active', 'Total'] = insee['Population Active']
             indice_pop.loc['Revenu médian', 'Total'] = insee['Revenus Medians']
             indice_visibilite.loc['Tissu commercial', 'Total'] = len(local_banco)
-            indice_visibilite.loc['Centres Commerciaux'] = [len(local_banco[local_banco['type'] == 'supermarket']), 0]
+            indice_visibilite.loc['Centres Commerciaux'] = [len(local_banco[local_banco['type'].isin(['supermarket',
+                                                                                                      'mall'])]), 0]
             if len(local_banco) > 0:
                 temp_tab_bar = len(local_banco[local_banco['type'].isin(['bar', 'restaurant'])]) / len(local_banco)
                 indice_visibilite.loc['Proportion Restaurants/Bars'] = [round(temp_tab_bar*100, 2), 0]
@@ -826,7 +850,9 @@ elif requete:
 
             # calculate final rate
             for indice_table in [final_viz, final_access, final_pop, final_dist]:
-                if sum(indice_table.iloc[:, 1]) >= 0:
+                if sum(indice_table.iloc[:, 1]) >= 30:
+                    indice_table.loc['Total'] = [' ', 30]
+                elif sum(indice_table.iloc[:, 1]) >= 0:
                     indice_table.loc['Total'] = [' ', sum(indice_table.iloc[:, 1])]
                 else:
                     indice_table.loc['Total'] = [' ', 0]
@@ -835,13 +861,14 @@ elif requete:
                 final_note += total_final.iloc[-1, 1]
 
             # print indices
+            final_viz.iloc[2:5, 0] = final_viz.iloc[2:5, 0].apply(lambda x: str(x) + ' %') # print percent
             col1, col2 = st.beta_columns([2, 1])
             with col1:
                 st.title(' ')
                 st.subheader("Indice d'attractivité de l'emplacement")
                 st.write(geo['features'][0]['properties']['label'])
             with col2:
-                color = 'green' if final_note > 70 else 'tomato'
+                color = rate_color(final_note, 100)
                 st.markdown(
                     f'''
                     <p class="indice_total", style="color:{color}">{final_note}
@@ -850,7 +877,7 @@ elif requete:
             st.title(' ')
             col1, col2, col3, col4 = st.beta_columns(4)
             with col1:
-                color = 'green' if final_viz.iloc[-1, 1] > 15 else 'tomato'
+                color = rate_color(final_viz.iloc[-1, 1], 30)
                 st.markdown(
                     f'''
                     <p class="titre">Indice de visibilité</p>
@@ -858,7 +885,7 @@ elif requete:
                         <span class="text">/ 30</span> </p>
                     ''', unsafe_allow_html=True)
             with col2:
-                color = 'green' if final_access.iloc[-1, 1] > 15 else 'tomato'
+                color = rate_color(final_access.iloc[-1, 1], 30)
                 st.markdown(
                     f'''
                     <p class="titre">Indice d'accessiblité</p>
@@ -866,7 +893,7 @@ elif requete:
                         <span class="text">/ 30</span></p>
                     ''', unsafe_allow_html=True)
             with col3:
-                color = 'green' if final_pop.iloc[-1, 1] > 10 else 'tomato'
+                color = rate_color(final_pop.iloc[-1, 1], 20)
                 st.markdown(
                     f'''
                     <p class="titre">Indice de Population</p>
@@ -874,7 +901,7 @@ elif requete:
                         <span class="text">/ 20</span></p>
                     ''', unsafe_allow_html=True)
             with col4:
-                color = 'green' if final_dist.iloc[-1, 1] > 10 else 'tomato'
+                color = rate_color(final_dist.iloc[-1, 1], 20)
                 st.markdown(
                     f'''
                     <p class="titre">Indice du Quartier</p>
@@ -895,17 +922,18 @@ elif requete:
                 st.markdown(f'Code Iris : {code_iris}')
             col1, col2 = option.beta_columns([3, 2])
             with col1:
-                st.markdown("**Indice de Visiblité**")
+                st.markdown("**Indice de Visiblité** (zone de 200m)")
                 st.dataframe(final_viz)
             with col2:
-                st.markdown("**Indice d'Accessiblité**")
+                st.markdown("""**Indice d'Accessiblité**  
+                               (zone de 400m)""")
                 st.dataframe(final_access)
             col1, col2 = option.beta_columns([8, 9])
             with col1:
-                st.markdown("**Indice de Population**")
+                st.markdown("**Indice de Population** (quartier IRIS)")
                 st.dataframe(final_pop)
             with col2:
-                st.markdown("**Indice du Quartier**")
+                st.markdown("**Indice du Quartier** (zone de 400m)")
                 st.dataframe(final_dist)
 
             # add to history
