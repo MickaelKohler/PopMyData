@@ -1,5 +1,5 @@
 # Pop My Data
-_Ensemble d'outils de prospection de locaux comemrciaux_
+_Outil de prospection de locaux comemrciaux_
 
 ## Sommaire
 
@@ -12,37 +12,53 @@ _Ensemble d'outils de prospection de locaux comemrciaux_
 
 ## Origine du projet
 
-_Pop My Data_ est developpé à la demande de __My Pop Up Store__
+Les projet _Pop My Data_ est né d'une volonté de __My Pop Up Store__ de pouvoir avoir un outil pratique et rapide pour prospecter de nouveaux locaux commerciaux où installer des boutiques éphemères. 
+
+Deux thématiques sont étudiées par l'outils :
+- Caractériser l'attractivité d'un emplacement
+- Fournir les coordonnées du propriétaire (personne morale) d'un local.
+
+Trois villes sont été intégrée dans l'outils dans la version 1.0 : **Paris**, **Bordeaux** et **Lille**
+
+Toutes les données utilisées prennent leurs sources dans l'Open Data. La liste des  bases de données consultées est [disponibles dans le wiki](https://github.com/MyPopUpStore/PopMyData/wiki/Annexe-:-Les-Bases-de-Données)
 
 ## Interface
 
-Ces analyses ont été mise à disposition au travers d’une __WebApp__ créée au travers de la plateforme __Streamlit__.
+Ces analyses ont été mises à disposition au travers d’une __WebApp__ créée au travers de la plateforme __Streamlit__.
 
 ### Adresse du site :
 
-Le site est hébergé directement sur les serveurs mis à disposition par *Streamlit* :
+Le site est hébergé sur les serveurs mis à disposition par *Streamlit* :
 
-https://share.streamlit.io/mickaelkohler/popmydata/main/locannuaire.py
+https://share.streamlit.io/mypopupstore/popmydata/main/locannuaire.py
 
 ### Captures d’écran
 
-work in progress
+![screenshot1](https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Ressources%20Wiki/capture1.png)
+![screenshot2](https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Ressources%20Wiki/Capture2.png)
+![screenshot3](https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Ressources%20Wiki/Capture3.png)
 
 ## Technologies 
 
 Projet fait entièrement en **Python**
 
 Utilisations des librairies suivantes : 
- - Pandas
- - Streamlit
+ - *Pandas* pour l'exploration de la donnée
+ - *KNIME* pour le nettoyage automatique de la donnée
+ - *Folium* pour la cartograhie
+ - *Streamlit* pour l'interface de la WebApp
 
 ## Bases de données 
 
-work in progress
+Toutes les données utilisées sont disponible en Open Data et sont consultées au travers d'API ou de fichiers nettoyées et enregistré dans le **dossier Data**.
+
+La liste des  bases de données consultées est [disponibles dans le wiki](https://github.com/MyPopUpStore/PopMyData/wiki/Annexe-:-Les-Bases-de-Données)
+
+*La dernière mise à jours des données date du 26/07/2021.*
 
 ## Statut
 
-work in progress
+La version 1.0 de la WebApp *locannuaire* est disponible depuis le 27/07/2021.
 
 ## La Team
 

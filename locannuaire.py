@@ -1,3 +1,190 @@
+#  CONSTRUCTEUR DES INDICES #
+
+# Constructeur de l'INDICE DE VISIBILITÉ
+def visibility_rating(table, departement):
+    """
+    Ajoute la colonne avec les notes compte tenu de la valeur de chaque colonne
+    :param table: tableau avec les valeurs calculées par locannuaire
+    :param departement: departement où la recherche est effectuée
+    :return: retourne le tableau complété
+    """
+
+    # Flux des transports pour PARIS
+    if departement == 75:
+        if table.loc['Nombre voyageurs Metro/Tram', 'Total'] >= 20000:          # 1er palier: plus de 20 000 voyageurs
+            table.loc['Nombre voyageurs Metro/Tram', 'Note'] = 9                    # La note sera de 9
+        elif table.loc['Nombre voyageurs Metro/Tram', 'Total'] >= 10000:        # 2em palier: entre 19 999 et 10 000
+            table.loc['Nombre voyageurs Metro/Tram', 'Note'] = 6                    # La note sera de 6
+        elif table.loc['Nombre voyageurs Metro/Tram', 'Total'] >= 5000:         # 3em palier: entre 9 999 et 5 000
+            table.loc['Nombre voyageurs Metro/Tram', 'Note'] = 3                    # La note sera de 3
+                                                                                # En dessous de 5 000 la note est de 0
+    # Flux des transports pour LILLE
+    if departement == 59:
+        if table.loc['Nombre voyageurs Metro/Tram', 'Total'] >= 10000:         # 1er palier: plus de 10 000 voyageurs
+            table.loc['Nombre voyageurs Metro/Tram', 'Note'] = 9                   # La note sera de 9
+        elif table.loc['Nombre voyageurs Metro/Tram', 'Total'] >= 5000:        # 2em palier: entre 10 000 et 5 000
+            table.loc['Nombre voyageurs Metro/Tram', 'Note'] = 6                   # La note sera de 6
+        elif table.loc['Nombre voyageurs Metro/Tram', 'Total'] >= 2500:        # 3em palier: plus de 2 500 voyageurs
+            table.loc['Nombre voyageurs Metro/Tram', 'Note'] = 3                   # La note sera de 3
+                                                                                # En dessous de 2 500 la note est de 0
+    # Tissu Commercial pour PARIS et LILLE
+    if departement in [75, 59]:
+        if table.loc['Tissu commercial', 'Total'] >= 100:          # 1er palier: plus de 100 boutiques
+            table.loc['Tissu commercial', 'Note'] = 20                 # La note sera de 20
+        elif table.loc['Tissu commercial', 'Total'] >= 70:         # 2em palier: entre 99 et 70 boutiques
+            table.loc['Tissu commercial', 'Note'] = 17                 # La note sera de 17
+        elif table.loc['Tissu commercial', 'Total'] >= 50:         # 3em palier: entre 69 et 50 boutiques
+            table.loc['Tissu commercial', 'Note'] = 14                 # La note sera de 14
+        elif table.loc['Tissu commercial', 'Total'] >= 40:         # 4em palier: entre 49 et 40 boutiques
+            table.loc['Tissu commercial', 'Note'] = 10                 # La note sera de 10
+        elif table.loc['Tissu commercial', 'Total'] >= 30:         # 5em palier: entre 39 et 30 boutiques
+            table.loc['Tissu commercial', 'Note'] = 6                  # La note sera de 6
+        elif table.loc['Tissu commercial', 'Total'] >= 20:         # 6em palier: entre 29 et 20 boutiques
+            table.loc['Tissu commercial', 'Note'] = 3                  # La note sera de 3
+        elif table.loc['Tissu commercial', 'Total'] >= 10:         # 7em palier: entre 19 et 10 boutiques
+            table.loc['Tissu commercial', 'Note'] = 1                  # La note sera de 1
+                                                                    # En dessous de 10 boutiques la note est de 0
+
+        coef_bar_max = -3   # fixation des points pour le palier maximum du fait de la proportion bars/restaurants
+        coef_bar_mid = -2   # fixation des points pour le palier intermédiaire du fait de la proportion bars/restaurants
+        coef_mall = 1       # fixation des points en cas de présence d'un centre commercial à proximité
+
+    # Tissu Commercial pour BORDEAUX
+    else:
+        if table.loc['Tissu commercial', 'Total'] >= 100:          # 1er palier: plus de 100 boutiques
+            table.loc['Tissu commercial', 'Note'] = 30                 # La note sera de 30
+        elif table.loc['Tissu commercial', 'Total'] >= 70:         # 2em palier: entre 99 et 70 boutiques
+            table.loc['Tissu commercial', 'Note'] = 25                 # La note sera de 25
+        elif table.loc['Tissu commercial', 'Total'] >= 50:         # 3em palier: entre 69 et 50 boutiques
+            table.loc['Tissu commercial', 'Note'] = 20                 # La note sera de 20
+        elif table.loc['Tissu commercial', 'Total'] >= 40:         # 4em palier: entre 49 et 40 boutiques
+            table.loc['Tissu commercial', 'Note'] = 15                 # La note sera de 15
+        elif table.loc['Tissu commercial', 'Total'] >= 30:         # 5em palier: entre 39 et 30 boutiques
+            table.loc['Tissu commercial', 'Note'] = 10                 # La note sera de 10
+        elif table.loc['Tissu commercial', 'Total'] >= 20:         # 6em palier: entre 29 et 20 boutiques
+            table.loc['Tissu commercial', 'Note'] = 5                  # La note sera de 5
+        elif table.loc['Tissu commercial', 'Total'] >= 10:         # 7em palier: entre 19 et 10 boutiques
+            table.loc['Tissu commercial', 'Note'] = 1                  # La note sera de 1
+                                                                    # En dessous de 10 boutiques la note est de 0
+
+        coef_bar_max = -5   # fixation des points pour le palier maximum du fait de la proportion bars/restaurants
+        coef_bar_mid = -3   # fixation des points pour le palier intermédiaire du fait de la proportion bars/restaurants
+        coef_mall = 3       # fixation des points en cas de présence d'un centre commercial à proximité
+
+    # Pondération par proportion des bars et restaurants pour TOUTES LES VILLES
+    if table.loc['Centres Commerciaux', 'Total'] >= 90:          # 1er palier: plus de 90% de bars/restaurants
+        table.loc['Centres Commerciaux', 'Note'] = coef_bar_max    # La note générale sera baissé des points du coef_max
+    elif table.loc['Centres Commerciaux', 'Total'] >= 60:        # 2em palier: entre 89% et 60% de bars/restaurants
+        table.loc['Centres Commerciaux', 'Note'] = -1              # La note générale sera baissé des points du coef_mid
+    elif table.loc['Centres Commerciaux', 'Total'] >= 10:        # 3em palier: entre 69 et 50 de bars/restaurants
+        table.loc['Centres Commerciaux', 'Note'] = 0               # La note générale sera identique
+    elif table.loc['Centres Commerciaux', 'Total'] <= 10:        # 4em palier: moins de 10% de bars/restaurants
+        table.loc['Centres Commerciaux', 'Note'] = coef_bar_mid    # La note générale sera baissé de 1 point
+
+    # Centre Commeriaux pour TOUTES LES VILLES
+    table.loc['Centres Commerciaux', 'Note'] = coef_mall if table.loc['Centres Commerciaux', 'Total'] >= 1 else 0
+        # S'il y a plus de 1 centre commercial, alors le logiciel applique le coeficient defini precedement sinon 0
+
+    return table                                           # Une fois la fonction appliquée, retourne le tableau modifié
+
+
+# Constructeur de l'INDICE D'ACCESSIBILITÉ
+def access_rating(table):
+    """
+    Ajoute la colonne avec les notes compte tenu de la valeur de chaque colonne
+    :param table: tableau avec les valeurs calculées par locannuaire
+    :return: retourne le tableau complété
+    """
+    # S'il y a une gare, attribue 2 points à la note, sinon 0
+    table.loc['Gare', 'Note'] = 2 if table.loc['Gare', 'Total'] >= 1 else 0
+
+    # La note des Metro/Tram est égale au triple du nombre d'arrêts de Métro et Trame pour un maximum de 10 points.
+    table.loc['Metro/Tram', 'Note'] = 10 if table.loc['Metro/Tram', 'Total'] >= 3 else table.loc['Metro/Tram', 'Total'] * 3
+
+    # La note des Bus est égale au nombre d'arrêts de bus pour un maximum de 6 points.
+    table.loc['Bus', 'Note'] = 6 if table.loc['Bus', 'Total'] >= 3 else table.loc['Bus', 'Total']
+
+    # La note des Vélos libre-service est égale au double du nombre de bornes de Vélos pour un maximum de 6 points
+    table.loc['Velo_ls', 'Note'] = 6 if table.loc['Velo_ls', 'Total'] >= 3 else table.loc['Velo_ls', 'Total'] * 2
+
+    # La note des Parkings est égale au double du nombre de parking pour un maximum de 6 points
+    table.loc['Parking', 'Note'] = 6 if table.loc['Parking', 'Total'] >= 3 else table.loc['Parking', 'Total'] * 2
+
+    return table                                           # Une fois la fonction appliquée, retourne le tableau modifié
+
+
+# Constructeur de l'INDICE DE POPULATION
+def population_rating(table):
+    """
+    Ajoute la colonne avec les notes compte tenu de la valeur de chaque colonne
+    :param table: tableau avec les valeurs calculées par locannuaire
+    :return: retourne le tableau complété
+    """
+    # Population totale d'un IRIS
+    if table.loc['Population Active', 'Total'] >= 2000:             # 1er palier: plus de 2 000 habitants
+        table.loc['Population Active', 'Note'] = 6                      # La note sera de 6
+    elif table.loc['Population Active', 'Total'] >= 1000:           # 2em palier: entre 1 999 et 1 000 habitants
+        table.loc['Population Active', 'Note'] = 10                     # La note sera de 10
+    elif table.loc['Population Active', 'Total'] >= 200:            # 3em palier: entre 999 et 200 habitants
+        table.loc['Population Active', 'Note'] = 4                      # La note sera de 4
+                                                                    # En dessous de 200 habitants la note sera de 0
+
+    # Revenu médian de la population de l'IRIS
+    if table.loc['Revenu médian', 'Total'] >= 30000:                # 1er palier: plus de 30 000 euros de revenu
+        table.loc['Revenu médian', 'Note'] = 10                         # La note sera de 10
+    elif table.loc['Revenu médian', 'Total'] >= 25000:              # 2em palier: entre 29 999€ et 25 000€ de revenu
+        table.loc['Revenu médian', 'Note'] = 8                          # La note sera de 8
+    elif table.loc['Revenu médian', 'Total'] >= 20000:              # 3em palier: entre 24 999€ et 20 000€ de revenu
+        table.loc['Revenu médian', 'Note'] = 6                          # La note sera de 6
+    elif table.loc['Revenu médian', 'Total'] >= 15000:              # 4em palier: entre 19 999€ et 15 000€ de revenu
+        table.loc['Revenu médian', 'Note'] = 4                          # La note sera de 4
+    elif table.loc['Revenu médian', 'Total'] >= 10000:              # 5em palier: entre 14 999€ et 10 000€ de revenu
+        table.loc['Revenu médian', 'Note'] = 2                          # La note sera de 2
+                                                                    # En dessous de 10 000 euros la note sera de 0
+
+    return table                                           # Une fois la fonction appliquée, retourne le tableau modifié
+
+
+# Constructeur de L'INDICE VIE DE QUARTIER
+def district_rating(table):
+    """
+    Ajoute la colonne avec les notes compte tenu de la valeur de chaque colonne
+    :param table: tableau avec les valeurs calculées par locannuaire
+    :return: retourne le tableau complété
+    """
+    # Si il y a au moins un bureau de poste, alors la note est égale à 1 point, sinon 0
+    table.loc['Bureau de poste', 'Note'] = 1 if table.loc['Bureau de poste', 'Total'] >= 1 else 0
+
+    # Si il y a au moins une École maternelle, alors la note est égale à 1 point, sinon 0
+    table.loc['École maternelle', 'Note'] = 1 if table.loc['École maternelle', 'Total'] >= 1 else 0
+
+    # Si il y a au moins un établissement d'enseignement secondaire, alors la note est égale à 1 point, sinon 0
+    table.loc['Enseignement Secondaire', 'Note'] = 1 if table.loc['Enseignement Secondaire', 'Total'] >= 1 else 0
+
+    # Si il y a au moins un établissement d'enseignement supérieur, alors la note est égale à ce nombre avec un max de 4
+    table.loc['Enseignement supérieur', 'Note'] = min(table.loc['Enseignement supérieur', 'Total'], 4)
+
+    # Si il y a au moins un Zone de sports, alors la note est égale à 2 point, sinon 0
+    table.loc['Zone Sports', 'Note'] = 2 if table.loc['Zone Sports', 'Total'] >= 1 else 0
+
+    # Si il y a au moins un Cinema, alors la note est égale à 2 point, sinon 0
+    table.loc['Cinéma', 'Note'] = 2 if table.loc['Cinéma', 'Total'] >= 1 else 0
+
+    # Si il y a au moins un Espace Culturel, alors la note est égale à 2 point, sinon 0
+    table.loc['Espace Culturel', 'Note'] = 2 if table.loc['Espace Culturel', 'Total'] >= 1 else 0
+
+    # Si il y a au moins une Bibliothèque, alors la note est égale à 1 point, sinon 0
+    table.loc['Bibliothèque', 'Note'] = 1 if table.loc['Bibliothèque', 'Total'] >= 1 else 0
+
+    # La note des Hotels est égale à la moitié du nombre d'hotel pour un maximum de 12 points.
+    table.loc['Hôtel', 'Note'] = 6 if table.loc['Hôtel', 'Total'] >= 12 else int(table.loc['Hôtel', 'Total'] * 0.5)
+
+    return table                                           # Une fois la fonction appliquée, retourne le tableau modifié
+
+
+# -------------------------------------------------------------------------------------------------------------------- #
+
+
 import requests
 from fuzzywuzzy import fuzz
 import folium
@@ -14,11 +201,6 @@ st.set_page_config(page_title="Locannuaire",
                    page_icon="🏠",
                    initial_sidebar_state="collapsed",
                    )
-
-# Si on modifie le background
-#    .reportview-container {
-#       background: url("https://www.mypopupstore.fr/wp-content/uploads/2018/03/mpups_evenement.png");
-#       background-size: cover}
 
 st.markdown("""
     <style>
@@ -53,6 +235,11 @@ def load_data(url, sep=','):
 
 
 def clean_metro_paris(stop_name):
+    """
+    Clean up the names of the metro stations
+    :param stop_name: name of the station in string
+    :return: a string with the name of the station cleaned
+    """
     station = stop_name.upper().replace(' - ', ' ')
     internat = {
         'À': 'A',
@@ -73,6 +260,8 @@ def clean_metro_paris(stop_name):
 
 def search_engine(search_street, adresses):
     """
+    Search engine that will look for a match between the name indicated by the user
+    and the addresses in the list set in parameters. The match must be at least 80%.
     :param search_street: takes an address selected by the user
     :param adresses: list of addresses
     :return: a dict with all addresses if the match is over 80% between user's address and addresses in the list
@@ -98,161 +287,40 @@ def search_engine(search_street, adresses):
     return {
         adresse: fuzz.ratio(cible, adresse)
         for adresse in adresses
-        if fuzz.ratio(cible, adresse) > 80
+        if fuzz.ratio(cible, adresse) > 80      # match percentage
     }
 
 
-def city_park(depatement, data):
-    """Return park database for specified location"""
-    data['insee'] = data['insee'].astype(str)
-    database = data[data['insee'].str.contains(f'{str(depatement)}...')]
+def city_park(depatement, data_park):
+    """
+    Select parking in the selected city
+    :param depatement: id of the city (int or string)
+    :param data_park: database of parkings
+    :return: a dataframe
+    """
+    data_park['insee'] = data_park['insee'].astype(str)
+    database = data_park[data_park['insee'].str.contains(f'{str(depatement)}...')]
     return database[['Xlong', 'Ylat', 'nom', 'nb_places', 'gratuit', 'adresse']]
 
 
 def clean_soc_name(soc_name):
-    """Clean the enterprise's name"""
+    """
+    Cleans up company names for search in PAPPERS
+    :param soc_name: (string) A name of à company
+    :return: a string
+    """
     ban_words = ['SA', 'SOCIETE', 'CIVILE', 'IMMOBILIERE']
     search_name = [word for word in soc_name.split() if word not in ban_words]
     return ' '.join(search_name)
 
 
-def population_rating(table):
-    """
-    Add the column rates to the table index_population.
-    :param table: table created when an address is specified by user
-    :return: same table with rates
-    """
-    # population number
-    if table.iloc[0, 0] >= 2000:
-        table.iloc[0, 1] = 6
-    elif table.iloc[0, 0] >= 1000:
-        table.iloc[0, 1] = 10
-    elif table.iloc[0, 0] >= 200:
-        table.iloc[0, 1] = 4
-
-    # median income
-    if table.iloc[1, 0] >= 30000:
-        table.iloc[1, 1] = 10
-    elif table.iloc[1, 0] >= 25000:
-        table.iloc[1, 1] = 8
-    elif table.iloc[1, 0] >= 20000:
-        table.iloc[1, 1] = 6
-    elif table.iloc[1, 0] >= 15000:
-        table.iloc[1, 1] = 4
-    elif table.iloc[1, 0] >= 10000:
-        table.iloc[1, 1] = 2
-    return table
-
-
-def visibility_rating(table, departement):
-    """
-    Add the column rates to the table index_visibility
-    :param table: table created when an address is specified by user
-    :param departement: departement
-    :return: same table with rates
-    """
-    # transport flow
-    if departement == 75:
-        if table.iloc[5, 0] >= 20000:
-            table.iloc[5, 1] = 9
-        elif table.iloc[5, 0] >= 10000:
-            table.iloc[5, 1] = 6
-        elif table.iloc[5, 0] >= 5000:
-            table.iloc[5, 1] = 3
-
-    if departement == 59:
-        if table.iloc[5, 0] >= 10000:
-            table.iloc[5, 1] = 9
-        elif table.iloc[5, 0] >= 5000:
-            table.iloc[5, 1] = 6
-        elif table.iloc[5, 0] >= 2500:
-            table.iloc[5, 1] = 3
-
-    if departement in [75, 59]:
-        coef_bar_max = -3
-        coef_bar_mid = -2
-        coef_mall = 1
-        if table.iloc[0, 0] >= 100:
-            table.iloc[0, 1] = 20
-        elif table.iloc[0, 0] >= 70:
-            table.iloc[0, 1] = 17
-        elif table.iloc[0, 0] >= 50:
-            table.iloc[0, 1] = 14
-        elif table.iloc[0, 0] >= 40:
-            table.iloc[0, 1] = 10
-        elif table.iloc[0, 0] >= 30:
-            table.iloc[0, 1] = 6
-        elif table.iloc[0, 0] >= 20:
-            table.iloc[0, 1] = 3
-        elif table.iloc[0, 0] >= 10:
-            table.iloc[0, 1] = 1
-    else:
-        if table.iloc[0, 0] >= 100:
-            table.iloc[0, 1] = 30
-        elif table.iloc[0, 0] >= 70:
-            table.iloc[0, 1] = 25
-        elif table.iloc[0, 0] >= 50:
-            table.iloc[0, 1] = 20
-        elif table.iloc[0, 0] >= 40:
-            table.iloc[0, 1] = 15
-        elif table.iloc[0, 0] >= 30:
-            table.iloc[0, 1] = 10
-        elif table.iloc[0, 0] >= 20:
-            table.iloc[0, 1] = 5
-        elif table.iloc[0, 0] >= 10:
-            table.iloc[0, 1] = 1
-        coef_bar_max = -5
-        coef_bar_mid = -3
-        coef_mall = 3
-
-    # bar and restaurants proportion
-    if table.iloc[1, 0] >= 90:
-        table.iloc[1, 1] = coef_bar_max
-    elif table.iloc[1, 0] >= 60:
-        table.iloc[1, 1] = coef_bar_mid
-    elif table.iloc[1, 0] >= 10:
-        table.iloc[1, 1] = 0
-    elif table.iloc[1, 0] <= 10:
-        table.iloc[1, 1] = -1
-
-    # malls
-    table.iloc[2, 1] = coef_mall if table.iloc[2, 0] >= 1 else 0
-    return table
-
-
-def access_rating(table):
-    """
-    Add the column rates to the table index_access.
-    :param table: table created when an address is specified by user
-    :return: same table with rates
-    """
-    table.iloc[0, 1] = 4 if table.iloc[0, 0] >= 1 else 0                     # Gare
-    table.iloc[1, 1] = 7 if table.iloc[1, 0] >= 3 else table.iloc[1, 0] * 2  # Metro Tram
-    table.iloc[2, 1] = 7 if table.iloc[2, 0] >= 3 else table.iloc[2, 0] * 2  # Bus
-    table.iloc[3, 1] = 6 if table.iloc[3, 0] >= 3 else table.iloc[3, 0] * 2  # Velo libre Service
-    table.iloc[4, 1] = 6 if table.iloc[4, 0] >= 3 else table.iloc[4, 0] * 2  # Parkings
-    return table
-
-
-def district_rating(table):
-    """
-    Add the column rates to the table index_district.
-    :param table: table created when an address is specified by user
-    :return: same table with rates
-    """
-    table.iloc[0, 1] = 1 if table.iloc[0, 0] >= 1 else 0                             # Post Office
-    table.iloc[1, 1] = 1 if table.iloc[1, 0] >= 1 else 0                             # primary school
-    table.iloc[2, 1] = 1 if table.iloc[2, 0] >= 1 else 0                             # middle/high school
-    table.iloc[3, 1] = min(table.iloc[3, 0], 4)                                      # University
-    table.iloc[4, 1] = 2 if table.iloc[4, 0] >= 1 else 0                             # Sport
-    table.iloc[5, 1] = 2 if table.iloc[5, 0] >= 1 else 0                             # Cinema
-    table.iloc[6, 1] = 2 if table.iloc[6, 0] >= 1 else 0                             # Museum
-    table.iloc[7, 1] = 1 if table.iloc[7, 0] >= 1 else 0                             # Library
-    table.iloc[8, 1] = 6 if table.iloc[8, 0] >= 12 else int(table.iloc[8, 0] * 0.5)  # Hotel
-    return table
-
-
 def carte(df, coord):
+    """
+    Builder of the cartography
+    :param df: dataframe with BANCO data
+    :param coord: a tuple of geographic coordinates (lat, lon)
+    :return: a string
+    """
     m = folium.Map(location=coord, zoom_start=16)
 
     marker_adresse = folium.Marker(location=coord)
@@ -385,12 +453,12 @@ def carte(df, coord):
     minimap = plugins.MiniMap()
     m.add_child(minimap)
 
-    plugins.LocateControl().add_to(m)
+    plugins.LocateControl(strings={"title": "Localisez-moi"}).add_to(m)
 
     plugins.Fullscreen(
         position="topleft",
-        title="Expand me",
-        title_cancel="Exit me",
+        title="Plein écran",
+        title_cancel="Quitter",
         force_separate_button=True,
     ).add_to(m)
 
@@ -421,31 +489,37 @@ def carte(df, coord):
     return m
 
 
-def rate_color(rate, max):
+def rate_color(rate, maximum):
     """
     Color the rate according to its height. Green is better.
-    :param rate: a rate
+    :param maximum: the maximum of the rate
+    :param rate: the rate
     :return: a color
     """
-    if max == 100:
-        max, mid, min = 75, 60, 50
-    elif max == 30:
-        max, mid, min = 20, 15, 10
+    if maximum == 100:
+        max_rate, mid_rate, min_rate = 75, 60, 50
+    elif maximum == 30:
+        max_rate, mid_rate, min_rate = 20, 15, 10
     else:
-        max, mid, min = 15, 10, 5
+        max_rate, mid_rate, min_rate = 15, 10, 5
 
-    if rate >= max:
+    if rate >= max_rate:
         return 'limegreen'
-    elif rate >= mid:
+    elif rate >= mid_rate:
         return 'gold'
-    elif rate >= min:
+    elif rate >= min_rate:
         return 'orange'
     else:
         return 'tomato'
 
 
 def print_associates(indice, db):
-    """Print associates names"""
+    """
+    Constructor of the display of the managers of a company.
+    :param indice: employee's id of the company (integer)
+    :param db: the dataframe
+    :return: nothing, directly print on streamlit
+    """
     gerant = db['representants'][indice]
     fonction = db['representants'][indice]['qualite'].split()[0].upper()
     nom_gerant = gerant['nom_complet']
@@ -490,72 +564,75 @@ type_name = 'shoes|garden_center|department_store|cosmetics|leather|perfumery|be
 
 # DATA #
 
-FLPM_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/FLPM_PRS.csv'
-FLPM_BDX = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/FLPM_BDX.csv'
-FLPM_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/FLPM_LIL.csv'
+FLPM_PRS = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/FLPM_PRS.csv'
+FLPM_BDX = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/FLPM_BDX.csv'
+FLPM_LIL = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/FLPM_LIL.csv'
 
-BANCO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/banco_prs.csv'
-BANCO_BDX = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/banco_bdx.csv'
-BANCO_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/banco_lil.csv'
+BANCO_PRS = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/BANCO_PRS.csv'
+BANCO_BDX = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/BANCO_BDX.csv'
+BANCO_LIL = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/BANCO_LIL.csv'
 
-METRO_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/metro_paris.csv'
-FREQ_PRS = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/frequentation_metro_paris.csv'
-FREQ_LIL = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/metro_lil.csv'
+METRO_PRS = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/metro_paris.csv'
+FREQ_PRS = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/frequentation_metro_paris.csv'
+FREQ_LIL = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/metro_lil.csv'
+INSEE = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/insee.csv'
+BPE = 'https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Data/bpe.csv'
+
 PARK = 'https://static.data.gouv.fr/resources/base-nationale-des-lieux-de-stationnement/20210502-172910/bnls-2-.csv'
-INSEE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/insee.csv'
-BPE = 'https://raw.githubusercontent.com/MickaelKohler/PopMyData/main/Data/bpe.csv'
-
-data_park = load_data(PARK, sep=';')
-bpe = load_data(BPE)
 
 
 # SIDEBAR #
 
-st.sidebar.title('Sources')
-st.sidebar.subheader('Base de Données')
+
+st.sidebar.title('Projet PopMyData')
+st.sidebar.markdown(
+    """
+    Le code source de ce projet est disponible sur le 
+    [Github](https://github.com/MyPopUpStore/PopMyData) de la société **MyPopUpStore**
+    
+    Un [wiki](https://github.com/MyPopUpStore/PopMyData/wiki)
+    est à votre disposition avec le mode d'emploi et la description de toutes les variables de l'application.
+    """
+)
+
+st.sidebar.subheader('Bases de Données')
 st.sidebar.markdown(
     '''
-    Données Nationales en OpenData :
-    - Identification des propriétaires, personnes morales, de locaux commerciaux grâce au  
-    [Fichiers des locaux et des parcelles des personnes morales]
-    (https://www.data.gouv.fr/fr/datasets/fichiers-des-locaux-et-des-parcelles-des-personnes-morales/), disponible sous 
-    _Data.gouv.fr_.
+    17 bases de données sont utilisées pour la construction de l'indice, de la cartographie 
+    et pour afficher les coordonnnées des représentants d'une société. 
     
-    - Identification des commerces via la
-    [BAse Nationale des Commerces Ouverte]
-    (https://www.data.gouv.fr/fr/datasets/base-nationale-des-commerces-ouverte/),
-    mise à disposition par _OpenStreetMap_.
-    
-    - Localisation des stationnements : 
-    [Base nationale des lieux de stationnement]
-    (https://transport.data.gouv.fr/datasets/base-nationale-des-lieux-de-stationnement/#dataset-other-datasets)
-    
-    Données pour PARIS en OpenData :
-    - Localisation des [Stations de Metro, RER et Tram]
-    (https://www.data.gouv.fr/fr/datasets/stations-et-gares-de-metro-rer-et-tramway-de-la-region-ile-de-france/)
-    via _OpenStreetMap_ 
-
+    Vous trouverez la liste de toutes les bases de données dans le Github du projet **PopMyData**, dans l'annexe
+    [Base de Données](https://github.com/MyPopUpStore/PopMyData/wiki/Annexe-:-Les-Bases-de-Données) 
     ''')
 
 st.sidebar.subheader('API')
 st.sidebar.markdown(
     '''
+    Deux API sont utilisées pour externliser les calculs les plus lourds : 
+    
     - Conversion des adresses en coordonnées GPS en adresse et inversement grace à l'
     [API ADRESSE](https://geo.api.gouv.fr/adresse) mis à disposition par Etalab.
     
     - Conversion de coordonnées géographiques en code IRIS pour faire le lien avec l'INSEE grace 
     à [PYRIS](https://pyris.datajazz.io).
-
-    - Recherche des gérants d'une société via l'API de [PAPPERS](https://www.pappers.fr/api/documentation) 
-    qui centralise les données de l'INSEE et du BODACC. 
     ''')
 
+st.sidebar.info(
+    """
+    Projet réalisé par les élèves de la **Wild Code School**, en partenariat avec **MyPopUpStore**
+    """
+)
 
 # MAIN PAGE #
 
-st.title('Bienvenue sur PopMyData')
-st.subheader('Outil de prospection des locaux commerciaux')
-st.title(' ')
+col1, col2 = st.beta_columns([1, 2])
+with col1:
+    st.write(' ')
+    st.image('https://raw.githubusercontent.com/MyPopUpStore/PopMyData/main/Ressources%20Wiki/logo.rond.png')
+with col2:
+    st.title(" ")
+    st.title('Bienvenue sur Locannuaire')
+    st.subheader('Outil de prospection des locaux commerciaux')
 
 # choose city
 category = st.selectbox('Choisissez une ville : ',
@@ -592,7 +669,7 @@ with col1:
 with col2:
     cartographie = st.checkbox("Cartographie", value=True)
 with col3:
-    coordonnees_proprio = st.checkbox("Coordonnées", value=True)
+    coordonnees_proprio = st.checkbox("Propriétaire", value=True)
 with col4:
     history = st.checkbox("Historique", value=False)
 
@@ -640,14 +717,26 @@ elif requete:
     search_adr = '+'.join((str(numb) + ' ' + street + ' ' + city).split())
     adresse_geo = f"https://api-adresse.data.gouv.fr/search/?q={search_adr}"
     geo = requests.get(adresse_geo).json()
-    coord_geo = geo['features'][0]['geometry']['coordinates']
-    geo_point = (coord_geo[1], coord_geo[0])
-    lat = coord_geo[1]
-    lon = coord_geo[0]
+    if len(geo['features']) > 0:
+        coord_geo = geo['features'][0]['geometry']['coordinates']
+        geo_point = (coord_geo[1], coord_geo[0])
+        lat = coord_geo[1]
+        lon = coord_geo[0]
 
-    # code iris (API)
-    rep_iris = requests.get(PYRIS_link, params={'lat': lat, 'lon': lon})
-    code_iris = rep_iris.json()['complete_code']
+        # code iris (API)
+        rep_iris = requests.get(PYRIS_link, params={'lat': lat, 'lon': lon})
+        code_iris = rep_iris.json()['complete_code']
+
+    else:
+        indice_attractivite, cartographie, coordonnees_proprio, history = None, None, None, None
+        if street.lower() == 'wild code school':
+            st.balloons()
+            col1, col2 = st.beta_columns([5, 1])
+            col2.write('🦆')
+        else:
+            st.warning("""Aucune adresse, ni aucune coordonnées géographiques n'ont pu être identifiées 
+                          avec ce nom de rue. Vérifiez le noms que vous avez indiquez.""")
+
 
     if indice_attractivite:
         st.markdown('___')
@@ -774,6 +863,8 @@ elif requete:
 
             # data nationale : parking
             index = 0
+            bpe = load_data(BPE)
+            data_park = load_data(PARK, sep=';')
             parking = city_park(dep, data_park)
             parking['Distance'] = 0
             for geo_park in zip(parking.iloc[:, 1], parking.iloc[:, 0]):
@@ -861,7 +952,7 @@ elif requete:
                 final_note += total_final.iloc[-1, 1]
 
             # print indices
-            final_viz.iloc[2:5, 0] = final_viz.iloc[2:5, 0].apply(lambda x: str(x) + ' %') # print percent
+            final_viz.iloc[2:5, 0] = final_viz.iloc[2:5, 0].apply(lambda x: str(x) + ' %')  # print percent
             col1, col2 = st.beta_columns([2, 1])
             with col1:
                 st.title(' ')
@@ -904,7 +995,7 @@ elif requete:
                 color = rate_color(final_dist.iloc[-1, 1], 20)
                 st.markdown(
                     f'''
-                    <p class="titre">Indice du Quartier</p>
+                    <p class="titre">Indice Vie du Quartier</p>
                     <p class="sous_indice", style="color:{color}">{int(final_dist.iloc[-1, 1])}
                         <span class="text">/ 20</span></p>
                     ''', unsafe_allow_html=True)
@@ -933,7 +1024,7 @@ elif requete:
                 st.markdown("**Indice de Population** (quartier IRIS)")
                 st.dataframe(final_pop)
             with col2:
-                st.markdown("**Indice du Quartier** (zone de 400m)")
+                st.markdown("**Indice Vie du Quartier** (zone de 400m)")
                 st.dataframe(final_dist)
 
             # add to history
