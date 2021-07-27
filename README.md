@@ -1,7 +1,7 @@
 # Pop My Data
 _Outil de prospection de locaux comemrciaux_
 
-Version de développement : la version en production est disponible à [cette adresse](https://github.com/MyPopUpStore/PopMyData)
+**Version de développement** : la version en production est disponible à [cette adresse](https://github.com/MyPopUpStore/PopMyData)
 
 ## Sommaire
 
